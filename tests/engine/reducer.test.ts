@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { createSession, sessionReducer } from "@/engine/session/reducer";
+import type { SessionEvent, SessionState } from "@/engine/types";
 import {
   failingVisibleReport,
   makeChallenge,
@@ -7,9 +10,7 @@ import {
   passingAllReport,
   passingVisibleReport,
   visibleOnlyPassReport,
-} from "../test-fixtures";
-import type { SessionEvent, SessionState } from "../types";
-import { createSession, sessionReducer } from "./reducer";
+} from "./fixtures";
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
@@ -23,23 +24,41 @@ function apply(state: SessionState, ...events: SessionEvent[]): SessionState {
   return events.reduce(sessionReducer, state);
 }
 
+function pick<T extends object, K extends keyof T>(value: T, keys: K[]): Pick<T, K> {
+  return Object.fromEntries(keys.map((key) => [key, value[key]])) as Pick<T, K>;
+}
+
 describe("createSession", () => {
   it("starts in progress with only the editable files", () => {
     const state = createSession(makeChallenge());
 
-    expect(state).toMatchObject({
-      version: 1,
-      challengeId: "000-fixture",
-      status: "in_progress",
-      hintLimit: 3,
-      hintsUsed: 0,
-      runs: 0,
-      lastRun: null,
-      diagnosed: false,
-      passedVisible: false,
-      passedAll: false,
-    });
-    expect(Object.keys(state.files)).toEqual(["src/main.js", "src/util.js"]);
+    assert.deepEqual(
+      pick(state, [
+        "version",
+        "challengeId",
+        "status",
+        "hintLimit",
+        "hintsUsed",
+        "runs",
+        "lastRun",
+        "diagnosed",
+        "passedVisible",
+        "passedAll",
+      ]),
+      {
+        version: 1,
+        challengeId: "000-fixture",
+        status: "in_progress",
+        hintLimit: 3,
+        hintsUsed: 0,
+        runs: 0,
+        lastRun: null,
+        diagnosed: false,
+        passedVisible: false,
+        passedAll: false,
+      },
+    );
+    assert.deepEqual(Object.keys(state.files), ["src/main.js", "src/util.js"]);
   });
 });
 
@@ -53,16 +72,16 @@ describe("FILE_EDITED", () => {
       contents: "export const x = 2;\n",
     });
 
-    expect(next.files["src/main.js"]).toBe("export const x = 2;\n");
-    expect(next.editedSinceRun).toBe(true);
+    assert.equal(next.files["src/main.js"], "export const x = 2;\n");
+    assert.equal(next.editedSinceRun, true);
   });
 
   it("ignores read-only and unknown paths", () => {
     const readOnly = { type: "FILE_EDITED", path: "tests/visible.js", contents: "x" } as const;
     const unknown = { type: "FILE_EDITED", path: "nope.js", contents: "x" } as const;
 
-    expect(apply(start, readOnly)).toBe(start);
-    expect(apply(start, unknown)).toBe(start);
+    assert.equal(apply(start, readOnly), start);
+    assert.equal(apply(start, unknown), start);
   });
 
   it("does not treat inherited object keys as files", () => {
@@ -72,7 +91,7 @@ describe("FILE_EDITED", () => {
       contents: "x",
     });
 
-    expect(next).toBe(start);
+    assert.equal(next, start);
   });
 
   it("ignores an edit that changes nothing", () => {
@@ -82,7 +101,7 @@ describe("FILE_EDITED", () => {
       contents: start.files["src/main.js"],
     });
 
-    expect(next).toBe(start);
+    assert.equal(next, start);
   });
 });
 
@@ -93,10 +112,10 @@ describe("RUN_COMPLETED", () => {
     const report = failingVisibleReport();
     const next = apply(start, { type: "RUN_COMPLETED", report });
 
-    expect(next.runs).toBe(1);
-    expect(next.lastRun).toBe(report);
-    expect(next.passedVisible).toBe(false);
-    expect(next.status).toBe("in_progress");
+    assert.equal(next.runs, 1);
+    assert.equal(next.lastRun, report);
+    assert.equal(next.passedVisible, false);
+    assert.equal(next.status, "in_progress");
   });
 
   it("marks visible tests passed without solving the challenge", () => {
@@ -105,9 +124,9 @@ describe("RUN_COMPLETED", () => {
       report: passingVisibleReport(),
     });
 
-    expect(next.passedVisible).toBe(true);
-    expect(next.passedAll).toBe(false);
-    expect(next.status).toBe("in_progress");
+    assert.equal(next.passedVisible, true);
+    assert.equal(next.passedAll, false);
+    assert.equal(next.status, "in_progress");
   });
 
   it("keeps the session open when visible tests pass but a hidden test fails", () => {
@@ -116,9 +135,9 @@ describe("RUN_COMPLETED", () => {
       report: visibleOnlyPassReport(),
     });
 
-    expect(next.passedVisible).toBe(true);
-    expect(next.passedAll).toBe(false);
-    expect(next.status).toBe("in_progress");
+    assert.equal(next.passedVisible, true);
+    assert.equal(next.passedAll, false);
+    assert.equal(next.status, "in_progress");
   });
 
   it("solves the challenge when every test passes", () => {
@@ -127,9 +146,9 @@ describe("RUN_COMPLETED", () => {
       report: passingAllReport(),
     });
 
-    expect(next.passedVisible).toBe(true);
-    expect(next.passedAll).toBe(true);
-    expect(next.status).toBe("solved");
+    assert.equal(next.passedVisible, true);
+    assert.equal(next.passedAll, true);
+    assert.equal(next.status, "solved");
   });
 
   it("does not credit visible tests after a timeout or crash", () => {
@@ -137,7 +156,7 @@ describe("RUN_COMPLETED", () => {
       const report = makeReport("visible", outcome, [makeResult()]);
       const next = apply(start, { type: "RUN_COMPLETED", report });
 
-      expect(next.passedVisible).toBe(false);
+      assert.equal(next.passedVisible, false);
     }
   });
 
@@ -147,7 +166,7 @@ describe("RUN_COMPLETED", () => {
       report: makeReport("visible", "passed", []),
     });
 
-    expect(next.passedVisible).toBe(false);
+    assert.equal(next.passedVisible, false);
   });
 
   it("clears editedSinceRun and keeps an earlier visible pass sticky", () => {
@@ -158,9 +177,9 @@ describe("RUN_COMPLETED", () => {
       { type: "RUN_COMPLETED", report: failingVisibleReport() },
     );
 
-    expect(next.editedSinceRun).toBe(false);
-    expect(next.passedVisible).toBe(true);
-    expect(next.runs).toBe(2);
+    assert.equal(next.editedSinceRun, false);
+    assert.equal(next.passedVisible, true);
+    assert.equal(next.runs, 2);
   });
 });
 
@@ -171,7 +190,7 @@ describe("HINT_REVEALED", () => {
 
     const next = apply(start, hint, hint, hint, hint, hint);
 
-    expect(next.hintsUsed).toBe(3);
+    assert.equal(next.hintsUsed, 3);
   });
 });
 
@@ -185,8 +204,8 @@ describe("DIAGNOSIS_CHECKED", () => {
       { type: "DIAGNOSIS_CHECKED", correct: false },
     );
 
-    expect(next.wrongDiagnoses).toBe(2);
-    expect(next.diagnosed).toBe(false);
+    assert.equal(next.wrongDiagnoses, 2);
+    assert.equal(next.diagnosed, false);
   });
 
   it("records a correct diagnosis once and ignores later attempts", () => {
@@ -196,8 +215,8 @@ describe("DIAGNOSIS_CHECKED", () => {
       { type: "DIAGNOSIS_CHECKED", correct: false },
     );
 
-    expect(next.diagnosed).toBe(true);
-    expect(next.wrongDiagnoses).toBe(0);
+    assert.equal(next.diagnosed, true);
+    assert.equal(next.wrongDiagnoses, 0);
   });
 });
 
@@ -217,16 +236,16 @@ describe("terminal states", () => {
     });
 
     for (const event of events) {
-      expect(sessionReducer(solved, event)).toBe(solved);
+      assert.equal(sessionReducer(solved, event), solved);
     }
   });
 
   it("freezes a revealed session", () => {
     const revealed = apply(createSession(makeChallenge()), { type: "REVEALED" });
 
-    expect(revealed.status).toBe("revealed");
+    assert.equal(revealed.status, "revealed");
     for (const event of events) {
-      expect(sessionReducer(revealed, event)).toBe(revealed);
+      assert.equal(sessionReducer(revealed, event), revealed);
     }
   });
 });
@@ -243,6 +262,6 @@ describe("purity", () => {
       { type: "RUN_COMPLETED", report: passingAllReport() },
     ];
 
-    expect(() => apply(start, ...events)).not.toThrow();
+    assert.doesNotThrow(() => apply(start, ...events));
   });
 });

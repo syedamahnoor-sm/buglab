@@ -4,7 +4,7 @@ import type {
   RunReport,
   RunScope,
   TestResult,
-} from "./types";
+} from "@/engine/types";
 
 export function makeChallenge(
   overrides: Partial<ChallengePublic> = {},
