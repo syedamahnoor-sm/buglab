@@ -65,7 +65,7 @@ describe("answer-key confidentiality", () => {
   test("the correctness field name never appears outside server-only code", () => {
     const offenders = files
       .filter(({ path }) => !isServerOnlyPath(path))
-      .filter(({ text }) => /correctRootCauseId|resolutionSummary|keyEvidence/.test(text))
+      .filter(({ text }) => /correctRootCauseId|resolutionSummary|keyEvidence|keyObservation/.test(text))
       .map(({ path }) => path);
     assert.deepEqual(offenders, []);
   });

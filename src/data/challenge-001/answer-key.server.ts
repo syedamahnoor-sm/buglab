@@ -37,12 +37,47 @@ export const provisionalAnswerKey = {
     { path: "src/routes/auth.ts", detail: "logout reads req.signedCookies (works)" },
     { path: "logs/app.log", detail: "login 200 followed by 401 on every protected route" },
   ],
-  // Stable IDs from logs.ts / network.ts that a learner can collect as evidence.
-  keyEvidenceRefs: [
-    { kind: "network", requestId: "req-01", why: "Set-Cookie issues sid in signed format (s:...)" },
-    { kind: "network", requestId: "req-04", why: "Browser sends that sid cookie, still gets 401" },
-    { kind: "log", logId: "log-06", why: "authenticate rejects the request despite a valid login" },
-    { kind: "log", logId: "log-02", why: "Login succeeded for the same user moments earlier" },
+  // The key observations behind the diagnosis. Each one can be shown by any
+  // of several equivalent evidence items (one per login attempt, and for
+  // both protected routes), so collecting any one of them covers it. IDs are
+  // the stable IDs from logs.ts / network.ts; no ID may be in two groups.
+  keyObservations: [
+    {
+      id: "signed-cookie-issued",
+      why: "Login's Set-Cookie issues sid in signed format (s:...)",
+      refs: [
+        { kind: "network", requestId: "req-01" },
+        { kind: "network", requestId: "req-08" },
+      ],
+    },
+    {
+      id: "cookie-sent-still-401",
+      why: "Browser sends that sid cookie on a protected route and still gets 401",
+      refs: [
+        { kind: "network", requestId: "req-04" },
+        { kind: "network", requestId: "req-05" },
+        { kind: "network", requestId: "req-11" },
+        { kind: "network", requestId: "req-12" },
+      ],
+    },
+    {
+      id: "auth-rejected",
+      why: "authenticate rejects the request despite a valid login",
+      refs: [
+        { kind: "log", logId: "log-06" },
+        { kind: "log", logId: "log-08" },
+        { kind: "log", logId: "log-17" },
+        { kind: "log", logId: "log-19" },
+      ],
+    },
+    {
+      id: "login-succeeded",
+      why: "Login succeeded for the same user moments earlier",
+      refs: [
+        { kind: "log", logId: "log-02" },
+        { kind: "log", logId: "log-13" },
+      ],
+    },
   ],
   expectedFix:
     "Read the session ID from req.signedCookies[config.session.cookieName] in the " +

@@ -51,8 +51,10 @@ export function evaluateDiagnosis(
     };
   }
 
-  const keyCovered = submission.evidence.filter((ref) =>
-    answerKey.keyEvidenceIds.has(getEvidenceId(ref)),
+  // Each observation counts once, however many equivalent items show it.
+  const submittedIds = new Set(submission.evidence.map(getEvidenceId));
+  const covered = answerKey.keyObservations.filter((observation) =>
+    [...observation.evidenceIds].some((id) => submittedIds.has(id)),
   ).length;
 
   return {
@@ -60,7 +62,7 @@ export function evaluateDiagnosis(
     feedback: {
       headline: "Diagnosis confirmed.",
       hints: [
-        `Your evidence included ${keyCovered} of ${answerKey.keyEvidenceIds.size} key observations.`,
+        `Your evidence covered ${covered} of ${answerKey.keyObservations.length} key observations for this incident.`,
         "Completion and scoring will be recorded by the Challenge Engine in a later stage.",
       ],
       evidenceSummary,

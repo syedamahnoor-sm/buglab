@@ -27,7 +27,7 @@ describe("evaluateDiagnosis", () => {
       answerKey,
     );
     assert.equal(result.status, "correct");
-    assert.match(result.feedback.hints[0], /0 of 4 key observations/);
+    assert.equal(result.feedback.hints[0], "Your evidence covered 0 of 4 key observations for this incident.");
   });
 
   test("every wrong option is incorrect, with no resolution", () => {

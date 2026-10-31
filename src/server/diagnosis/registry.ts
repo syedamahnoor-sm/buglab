@@ -8,13 +8,19 @@ import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
 import type { DiagnosisValidationContext } from "@/lib/diagnosis/validate";
 import { getEvidenceId } from "@/lib/evidence";
+import type { EvidenceRef } from "@/types/investigation";
 import type { WorkspaceScenario } from "@/types/workspace";
+
+export interface KeyObservation {
+  id: string;
+  /** Equivalent evidence, in getEvidenceId() form, e.g. "network:req-04". */
+  evidenceIds: ReadonlySet<string>;
+}
 
 export interface DiagnosisAnswerKey {
   correctRootCauseId: string;
   resolutionSummary: string;
-  /** Evidence IDs in getEvidenceId() form, e.g. "network:req-04". */
-  keyEvidenceIds: ReadonlySet<string>;
+  keyObservations: readonly KeyObservation[];
 }
 
 export interface DiagnosisChallenge {
@@ -33,11 +39,39 @@ export function validationContextFor(scenario: WorkspaceScenario): DiagnosisVali
   };
 }
 
+/**
+ * Builds key-observation groups, failing fast if any evidence ID is unknown
+ * to the scenario or belongs to more than one group.
+ */
+export function buildKeyObservations(
+  groups: readonly { id: string; refs: readonly EvidenceRef[] }[],
+  validation: DiagnosisValidationContext,
+): KeyObservation[] {
+  const owner = new Map<string, string>();
+  return groups.map((group) => {
+    const evidenceIds = new Set<string>();
+    for (const ref of group.refs) {
+      const exists =
+        ref.kind === "log" ? validation.logIds.has(ref.logId) : validation.requestIds.has(ref.requestId);
+      const evidenceId = getEvidenceId(ref);
+      if (!exists) throw new Error(`Key observation "${group.id}" refers to unknown evidence ${evidenceId}`);
+      const previous = owner.get(evidenceId);
+      if (previous) {
+        throw new Error(`Evidence ${evidenceId} is in both "${previous}" and "${group.id}"`);
+      }
+      owner.set(evidenceId, group.id);
+      evidenceIds.add(evidenceId);
+    }
+    return { id: group.id, evidenceIds };
+  });
+}
+
 export function createDefaultRegistry(): DiagnosisRegistry {
   const validation = validationContextFor(challenge001);
   if (!validation.rootCauseIds.has(provisionalAnswerKey.correctRootCauseId)) {
     throw new Error("challenge-001 answer key does not match its root-cause options");
   }
+  const keyObservations = buildKeyObservations(provisionalAnswerKey.keyObservations, validation);
 
   return new Map([
     [
@@ -48,7 +82,7 @@ export function createDefaultRegistry(): DiagnosisRegistry {
         answerKey: {
           correctRootCauseId: provisionalAnswerKey.correctRootCauseId,
           resolutionSummary: provisionalAnswerKey.resolutionSummary,
-          keyEvidenceIds: new Set(provisionalAnswerKey.keyEvidenceRefs.map(getEvidenceId)),
+          keyObservations,
         },
       },
     ],
