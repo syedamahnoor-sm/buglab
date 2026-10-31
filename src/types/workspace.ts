@@ -1,4 +1,6 @@
-export type Difficulty = "beginner" | "intermediate" | "advanced";
+import type { NetworkRequest } from "./investigation";
+
+export type Difficulty ="beginner" | "intermediate" | "advanced";
 
 export type InvestigationStatus =
   | "not-started"
@@ -49,6 +51,9 @@ export interface LogEntry {
 export interface WorkspaceScenario {
   challenge: ChallengeSummary;
   files: ScenarioFile[];
+  /** UTC date (YYYY-MM-DD) that log and network timestamps belong to. */
+  incidentDate: string;
   logs: LogEntry[];
+  network: NetworkRequest[];
   entryFilePath: string;
 }

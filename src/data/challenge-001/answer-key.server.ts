@@ -24,6 +24,13 @@ export const provisionalAnswerKey = {
     { path: "src/routes/auth.ts", detail: "logout reads req.signedCookies (works)" },
     { path: "logs/app.log", detail: "login 200 followed by 401 on every protected route" },
   ],
+  // Stable IDs from logs.ts / network.ts that a learner can collect as evidence.
+  keyEvidenceRefs: [
+    { kind: "network", requestId: "req-01", why: "Set-Cookie issues sid in signed format (s:...)" },
+    { kind: "network", requestId: "req-04", why: "Browser sends that sid cookie, still gets 401" },
+    { kind: "log", logId: "log-06", why: "authenticate rejects the request despite a valid login" },
+    { kind: "log", logId: "log-02", why: "Login succeeded for the same user moments earlier" },
+  ],
   expectedFix:
     "Read the session ID from req.signedCookies[config.session.cookieName] in the " +
     "authenticate middleware.",

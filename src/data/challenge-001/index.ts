@@ -6,11 +6,14 @@
 import type { WorkspaceScenario } from "@/types/workspace";
 import { challenge } from "./challenge";
 import { scenarioFiles } from "./files";
-import { incidentLogs } from "./logs";
+import { INCIDENT_DATE, incidentLogs } from "./logs";
+import { networkRequests } from "./network";
 
 export const challenge001: WorkspaceScenario = {
   challenge,
   files: scenarioFiles,
+  incidentDate: INCIDENT_DATE,
   logs: incidentLogs,
+  network: networkRequests,
   entryFilePath: "INCIDENT.md",
 };

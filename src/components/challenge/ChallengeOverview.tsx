@@ -33,30 +33,37 @@ export function ChallengeOverview({ challenge }: ChallengeOverviewProps) {
   return (
     <section
       aria-labelledby="challenge-title"
-      className="rounded-lg border border-border bg-surface p-4 sm:p-5"
+      className="rounded-lg border border-border bg-surface px-4 py-3 sm:px-5"
     >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-2">
-          <p className="font-mono text-xs text-subtle">
-            Challenge {challenge.number}
-          </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="font-mono text-xs text-subtle">
+              Challenge {challenge.number}
+            </p>
+            <ul aria-label="Topics" className="flex flex-wrap gap-1.5">
+              {challenge.tags.map((tag) => (
+                <li key={tag}>
+                  <Badge>{tag}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
           <h1
             id="challenge-title"
-            className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+            className="text-xl font-semibold tracking-tight text-foreground"
           >
             {challenge.title}
           </h1>
-          <div className="max-w-3xl rounded-md border-l-2 border-danger/60 bg-surface-sunken px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-danger/90">
+          <p className="max-w-3xl rounded-md border-l-2 border-danger/60 bg-surface-sunken px-3 py-1.5 text-sm leading-relaxed text-foreground/90">
+            <span className="mr-2 text-[11px] font-semibold uppercase tracking-wider text-danger/90">
               Incident
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-foreground/90">
-              {challenge.incident}
-            </p>
-          </div>
+            </span>
+            {challenge.incident}
+          </p>
         </div>
 
-        <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3 lg:grid-cols-1 lg:text-right">
+        <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-[11px] uppercase tracking-wider text-subtle">
               Difficulty
@@ -86,14 +93,6 @@ export function ChallengeOverview({ challenge }: ChallengeOverviewProps) {
           </div>
         </dl>
       </div>
-
-      <ul aria-label="Topics" className="mt-4 flex flex-wrap gap-1.5">
-        {challenge.tags.map((tag) => (
-          <li key={tag}>
-            <Badge>{tag}</Badge>
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

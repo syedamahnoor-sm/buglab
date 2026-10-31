@@ -1,11 +1,12 @@
 import { BugIcon } from "@/components/ui/icons";
+import { APP_STAGE_LABEL } from "@/config/app";
 
 interface NavItem {
   label: string;
   current?: boolean;
 }
 
-// Only the current page is "live" in Stage 1. The rest are rendered as plain
+// Only the current page is "live" for now. The rest are rendered as plain
 // text (not links or buttons) so they don't pretend to be working controls.
 const navItems: NavItem[] = [
   { label: "Challenges" },
@@ -62,7 +63,7 @@ export function AppHeader() {
         </nav>
 
         <span className="hidden shrink-0 rounded-md border border-border px-2 py-1 font-mono text-[11px] text-subtle md:inline">
-          Stage 1 · Preview
+          {APP_STAGE_LABEL}
         </span>
       </div>
     </header>

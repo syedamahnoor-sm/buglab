@@ -21,7 +21,7 @@ export const incidentLogs: LogEntry[] = [
   { id: "log-09", timestamp: "09:14:02.489", level: "INFO", source: "http", message: "GET /api/orders 401 2ms" },
   { id: "log-10", timestamp: "09:14:02.512", level: "ERROR", source: "web", message: "Dashboard failed to load: 2 requests returned 401" },
   { id: "log-11", timestamp: "09:14:02.513", level: "INFO", source: "http", message: "POST /api/client-errors 204 1ms" },
-  { id: "log-12", timestamp: "09:14:02.530", level: "INFO", source: "http", message: "GET /login.html 200 2ms" },
+  { id: "log-12", timestamp: "09:14:02.530", level: "INFO", source: "http", message: "GET /login.html 304 1ms" },
 
   { id: "log-13", timestamp: "09:14:09.871", level: "INFO", source: "auth", message: "Login succeeded user=u_1042" },
   { id: "log-14", timestamp: "09:14:09.872", level: "INFO", source: "http", message: "POST /api/auth/login 200 138ms" },
