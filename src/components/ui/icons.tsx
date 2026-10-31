@@ -81,6 +81,14 @@ export function ClipboardIcon(props: IconProps) {
   );
 }
 
+export function CloseIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m4.5 4.5 7 7M11.5 4.5l-7 7" />
+    </BaseIcon>
+  );
+}
+
 export function LockIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

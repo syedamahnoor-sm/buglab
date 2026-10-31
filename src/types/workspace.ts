@@ -21,11 +21,18 @@ export type FileNode =
   | { kind: "folder"; name: string; path: string; children: FileNode[] }
   | { kind: "file"; name: string; path: string };
 
-export interface OpenFile {
+export type EditorLanguage =
+  | "typescript"
+  | "javascript"
+  | "markdown"
+  | "json"
+  | "log"
+  | "plaintext";
+
+/** A learner-visible file in a challenge scenario. */
+export interface ScenarioFile {
   path: string;
-  name: string;
-  language: string;
-  lines: string[];
+  content: string;
 }
 
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
@@ -36,4 +43,12 @@ export interface LogEntry {
   level: LogLevel;
   source: string;
   message: string;
+}
+
+/** Everything the workspace needs to render one challenge. */
+export interface WorkspaceScenario {
+  challenge: ChallengeSummary;
+  files: ScenarioFile[];
+  logs: LogEntry[];
+  entryFilePath: string;
 }
