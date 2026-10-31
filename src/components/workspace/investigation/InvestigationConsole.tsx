@@ -10,7 +10,7 @@ import { NetworkView } from "./network/NetworkView";
 import { NotesView } from "./notes/NotesView";
 import type { InvestigationController } from "./useInvestigationController";
 
-type ConsoleTab = "logs" | "network" | "notes";
+export type ConsoleTab = "logs" | "network" | "notes";
 
 const ID_PREFIX = "console";
 
@@ -22,6 +22,8 @@ interface InvestigationConsoleProps {
   evidenceItems: { item: EvidenceItem; summary: EvidenceSummary }[];
   canOpenFile: (path: string) => boolean;
   onOpenFile: (path: string) => void;
+  activeTab: ConsoleTab;
+  onTabChange: (tab: ConsoleTab) => void;
   className?: string;
 }
 
@@ -41,10 +43,11 @@ export function InvestigationConsole({
   evidenceItems,
   canOpenFile,
   onOpenFile,
+  activeTab,
+  onTabChange: setActiveTab,
   className,
 }: InvestigationConsoleProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<ConsoleTab>("logs");
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 

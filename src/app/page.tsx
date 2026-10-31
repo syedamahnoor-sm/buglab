@@ -12,6 +12,8 @@ export default function Home() {
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
         <ChallengeOverview challenge={scenario.challenge} />
         <WorkspaceClient
+          challengeId={scenario.challenge.id}
+          rootCauseOptions={scenario.rootCauseOptions}
           files={scenario.files}
           entryFilePath={scenario.entryFilePath}
           incidentDate={scenario.incidentDate}

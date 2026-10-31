@@ -5,6 +5,7 @@
  */
 import type { WorkspaceScenario } from "@/types/workspace";
 import { challenge } from "./challenge";
+import { rootCauseOptions } from "./diagnosis-options";
 import { scenarioFiles } from "./files";
 import { INCIDENT_DATE, incidentLogs } from "./logs";
 import { networkRequests } from "./network";
@@ -15,5 +16,6 @@ export const challenge001: WorkspaceScenario = {
   incidentDate: INCIDENT_DATE,
   logs: incidentLogs,
   network: networkRequests,
+  rootCauseOptions,
   entryFilePath: "INCIDENT.md",
 };

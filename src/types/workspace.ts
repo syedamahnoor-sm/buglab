@@ -1,3 +1,4 @@
+import type { RootCauseOption } from "./diagnosis";
 import type { NetworkRequest } from "./investigation";
 
 export type Difficulty ="beginner" | "intermediate" | "advanced";
@@ -55,5 +56,6 @@ export interface WorkspaceScenario {
   incidentDate: string;
   logs: LogEntry[];
   network: NetworkRequest[];
+  rootCauseOptions: RootCauseOption[];
   entryFilePath: string;
 }

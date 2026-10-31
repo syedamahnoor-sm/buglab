@@ -3,14 +3,27 @@
  *
  * - Server-only: the "server-only" import makes any client import a build
  *   error, so this can never reach a browser bundle.
- * - Not imported anywhere yet. Validation and scoring belong to the
- *   Challenge Engine; replace or adapt this once the two are aligned.
+ * - Imported only by src/server/diagnosis/registry.ts.
+ * - Replace or adapt once aligned with the Challenge Engine.
  */
 import "server-only";
 
 export const provisionalAnswerKey = {
   challengeId: "challenge-001",
   status: "provisional",
+
+  /** Must match an id in diagnosis-options.ts. */
+  correctRootCauseId: "signed-cookie-read-as-unsigned",
+
+  /** Shown to the learner only after a correct submission. */
+  resolutionSummary:
+    "Login sets the session cookie with signed: true. Because the app uses " +
+    "cookieParser(secret), signed cookies are moved into req.signedCookies and " +
+    "removed from req.cookies. The authenticate middleware reads " +
+    "req.cookies.sid, finds nothing, and rejects every authenticated request " +
+    "with 401, even though the browser sends a valid cookie and the session " +
+    "exists in the store. Reading req.signedCookies in the middleware fixes it.",
+
   rootCause:
     "The login route issues the session cookie as a signed cookie (signed: true). " +
     "Because the app uses cookieParser(secret), signed cookies are parsed into " +

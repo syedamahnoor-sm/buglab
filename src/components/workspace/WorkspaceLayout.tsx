@@ -28,10 +28,10 @@ export function WorkspaceLayout({
         {editor}
       </div>
       <div className="contents lg:flex lg:min-h-0 lg:min-w-0 lg:flex-col lg:gap-3">
-        <div className="flex min-h-[480px] min-w-0 flex-col lg:min-h-0 lg:flex-[3]">
+        <div className="flex min-h-[480px] min-w-0 flex-col lg:min-h-0 lg:flex-1">
           {investigation}
         </div>
-        <div className="flex min-w-0 flex-col lg:flex-[2]">{diagnosis}</div>
+        <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">{diagnosis}</div>
       </div>
     </div>
   );
