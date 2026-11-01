@@ -1,22 +1,19 @@
 import type {
-  ChallengePublic,
   RunReport,
+  SessionConfig,
   SessionEvent,
   SessionState,
 } from "../types";
 
-export function createSession(challenge: ChallengePublic): SessionState {
+export function createSession(config: SessionConfig): SessionState {
+  const fix = config.completion === "fix" ? config : null;
   return {
     version: 1,
-    challengeId: challenge.id,
-    files: Object.fromEntries(
-      challenge.files
-        .filter((file) => !file.readOnly)
-        .map((file) => [file.path, file.contents]),
-    ),
-    hintLimit: challenge.scoring.hintCosts.length,
+    challengeId: config.challengeId,
+    completion: config.completion,
+    files: { ...fix?.editableFiles },
+    hintLimit: fix?.hintLimit ?? 0,
     hintsUsed: 0,
-    wrongDiagnoses: 0,
     diagnosed: false,
     runs: 0,
     lastRun: null,
@@ -41,6 +38,18 @@ export function sessionReducer(
   event: SessionEvent,
 ): SessionState {
   if (state.status !== "in_progress") return state;
+
+  if (event.type === "DIAGNOSIS_ACCEPTED") {
+    if (state.diagnosed) return state;
+    // Only a diagnosis-mode session is completed by the diagnosis alone. In
+    // Fix Mode the diagnosis is one part of the work, so it never solves.
+    return state.completion === "diagnosis"
+      ? { ...state, diagnosed: true, status: "solved" }
+      : { ...state, diagnosed: true };
+  }
+
+  // A diagnosis-mode session has nothing to edit, run, hint or reveal.
+  if (state.completion === "diagnosis") return state;
 
   switch (event.type) {
     case "FILE_EDITED":
@@ -75,12 +84,6 @@ export function sessionReducer(
       return state.hintsUsed >= state.hintLimit
         ? state
         : { ...state, hintsUsed: state.hintsUsed + 1 };
-
-    case "DIAGNOSIS_CHECKED":
-      if (state.diagnosed) return state;
-      return event.correct
-        ? { ...state, diagnosed: true }
-        : { ...state, wrongDiagnoses: state.wrongDiagnoses + 1 };
 
     case "REVEALED":
       return { ...state, status: "revealed" };

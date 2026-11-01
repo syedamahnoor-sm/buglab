@@ -1,41 +1,44 @@
 import type {
-  ChallengePublic,
   RunOutcome,
   RunReport,
   RunScope,
+  ScoringRules,
+  SessionConfig,
   TestResult,
 } from "@/engine/types";
+import type {
+  AttemptStatus,
+  DiagnosisFeedback,
+  DiagnosisResponse,
+  DiagnosisResponseStatus,
+} from "@/types/diagnosis";
 
-export function makeChallenge(
-  overrides: Partial<ChallengePublic> = {},
-): ChallengePublic {
+type FixConfig = Extract<SessionConfig, { completion: "fix" }>;
+
+export function makeDiagnosisConfig(): SessionConfig {
+  return { challengeId: "000-fixture", completion: "diagnosis" };
+}
+
+export function makeFixConfig(overrides: Partial<FixConfig> = {}): FixConfig {
   return {
-    id: "000-fixture",
-    title: "Fixture",
-    summary: "A challenge used only by tests.",
-    difficulty: 1,
-    tags: ["fixture"],
-    estMinutes: 5,
-    language: "javascript",
-    symptom: "Something is broken.",
-    files: [
-      { path: "src/main.js", contents: "export const x = 1;\n", readOnly: false },
-      { path: "src/util.js", contents: "export const y = 2;\n", readOnly: false },
-      { path: "tests/visible.js", contents: "// tests\n", readOnly: true },
-    ],
-    causeOptions: [
-      { id: "a", label: "Option A" },
-      { id: "b", label: "Option B" },
-    ],
-    scoring: {
-      diagnosisPoints: 30,
-      wrongDiagnosisPenalty: 5,
-      visibleFixPoints: 25,
-      hiddenFixPoints: 45,
-      hintCosts: [5, 10, 20],
+    challengeId: "000-fixture",
+    completion: "fix",
+    editableFiles: {
+      "src/main.js": "export const x = 1;\n",
+      "src/util.js": "export const y = 2;\n",
     },
-    runTimeoutMs: 2000,
+    hintLimit: 3,
     ...overrides,
+  };
+}
+
+export function makeScoringRules(): ScoringRules {
+  return {
+    diagnosisPoints: 30,
+    wrongDiagnosisPenalty: 5,
+    visibleFixPoints: 25,
+    hiddenFixPoints: 45,
+    hintCosts: [5, 10, 20],
   };
 }
 
@@ -82,3 +85,20 @@ export function passingAllReport(): RunReport {
     makeResult({ id: "h1", name: "Hidden test 1", visibility: "hidden" }),
   ]);
 }
+
+const attempts: AttemptStatus = { used: 1, limit: 3, remaining: 2 };
+const feedback: DiagnosisFeedback = {
+  headline: "headline",
+  hints: ["hint"],
+  evidenceSummary: { total: 1, logs: 1, network: 0 },
+};
+
+// Typed per status: adding a status to DiagnosisResponse fails to compile here
+// until this table (and therefore the adapter's coverage) is updated.
+export const diagnosisResponses: { [S in DiagnosisResponseStatus]: Extract<DiagnosisResponse, { status: S }> } = {
+  correct: { status: "correct", feedback, resolution: { summary: "fixed" }, attempts },
+  incorrect: { status: "incorrect", feedback, attempts },
+  invalid: { status: "invalid", errors: [{ field: "rootCauseId", message: "required" }] },
+  "rate-limited": { status: "rate-limited", retryAfterSeconds: 60, attempts },
+  error: { status: "error", message: "Couldn't reach the server." },
+};

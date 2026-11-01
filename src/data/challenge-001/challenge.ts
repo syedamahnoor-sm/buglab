@@ -7,7 +7,7 @@ export const challenge: ChallengeSummary = {
   incident:
     "Users can log in successfully, but subsequent authenticated requests fail.",
   difficulty: "intermediate",
-  status: "in-progress",
+  completion: "diagnosis",
   tags: ["Authentication", "HTTP", "Backend"],
   estimatedMinutes: 30,
 };

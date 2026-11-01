@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { PanelExpandToggle, type PanelLayoutState } from "@/components/ui/PanelExpandToggle";
 import { ClipboardIcon } from "@/components/ui/icons";
+import { useChallengeSession } from "@/engine/client/useChallengeSession";
 import {
   validateDiagnosisSubmission,
   type DiagnosisValidationContext,
@@ -54,7 +55,11 @@ export function DiagnosisPanel({
   const [rootCauseId, setRootCauseId] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [showErrors, setShowErrors] = useState(false);
-  const { state, submit, retry, reset } = useDiagnosisSubmission(challengeId);
+  const { recordDiagnosisResponse } = useChallengeSession();
+  const { state, submit, retry, reset } = useDiagnosisSubmission(
+    challengeId,
+    recordDiagnosisResponse,
+  );
 
   const response = state.phase === "done" ? state.response : null;
   const secondsUntilRetry = useSecondsUntil(

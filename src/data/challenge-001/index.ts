@@ -11,6 +11,7 @@ import { INCIDENT_DATE, incidentLogs } from "./logs";
 import { networkRequests } from "./network";
 
 export const challenge001: WorkspaceScenario = {
+  contractVersion: 1,
   challenge,
   files: scenarioFiles,
   incidentDate: INCIDENT_DATE,

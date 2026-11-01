@@ -4,11 +4,17 @@ export function maxScore(rules: ScoringRules): number {
   return rules.diagnosisPoints + rules.visibleFixPoints + rules.hiddenFixPoints;
 }
 
-export function computeScore(state: SessionState, rules: ScoringRules): Score {
+// wrongAttempts is an explicit input: the session does not count wrong diagnoses
+// (the diagnosis API owns attempts), and where Fix Mode sources this is undecided.
+export function computeScore(
+  state: SessionState,
+  rules: ScoringRules,
+  wrongAttempts = 0,
+): Score {
   const diagnosis = state.diagnosed
     ? Math.max(
         0,
-        rules.diagnosisPoints - state.wrongDiagnoses * rules.wrongDiagnosisPenalty,
+        rules.diagnosisPoints - wrongAttempts * rules.wrongDiagnosisPenalty,
       )
     : 0;
   const visibleFix =

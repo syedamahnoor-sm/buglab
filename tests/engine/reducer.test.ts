@@ -4,7 +4,8 @@ import { createSession, sessionReducer } from "@/engine/session/reducer";
 import type { SessionEvent, SessionState } from "@/engine/types";
 import {
   failingVisibleReport,
-  makeChallenge,
+  makeDiagnosisConfig,
+  makeFixConfig,
   makeReport,
   makeResult,
   passingAllReport,
@@ -29,13 +30,30 @@ function pick<T extends object, K extends keyof T>(value: T, keys: K[]): Pick<T,
 }
 
 describe("createSession", () => {
+  it("starts a diagnosis-mode session with nothing to edit and no hints", () => {
+    const state = createSession(makeDiagnosisConfig());
+
+    assert.deepEqual(
+      pick(state, ["challengeId", "completion", "status", "diagnosed", "hintLimit"]),
+      {
+        challengeId: "000-fixture",
+        completion: "diagnosis",
+        status: "in_progress",
+        diagnosed: false,
+        hintLimit: 0,
+      },
+    );
+    assert.deepEqual(state.files, {});
+  });
+
   it("starts in progress with only the editable files", () => {
-    const state = createSession(makeChallenge());
+    const state = createSession(makeFixConfig());
 
     assert.deepEqual(
       pick(state, [
         "version",
         "challengeId",
+        "completion",
         "status",
         "hintLimit",
         "hintsUsed",
@@ -48,6 +66,7 @@ describe("createSession", () => {
       {
         version: 1,
         challengeId: "000-fixture",
+        completion: "fix",
         status: "in_progress",
         hintLimit: 3,
         hintsUsed: 0,
@@ -63,7 +82,7 @@ describe("createSession", () => {
 });
 
 describe("FILE_EDITED", () => {
-  const start = createSession(makeChallenge());
+  const start = createSession(makeFixConfig());
 
   it("updates the file and marks the session edited since the last run", () => {
     const next = apply(start, {
@@ -106,7 +125,7 @@ describe("FILE_EDITED", () => {
 });
 
 describe("RUN_COMPLETED", () => {
-  const start = createSession(makeChallenge());
+  const start = createSession(makeFixConfig());
 
   it("records a failing visible run without passing anything", () => {
     const report = failingVisibleReport();
@@ -185,7 +204,7 @@ describe("RUN_COMPLETED", () => {
 
 describe("HINT_REVEALED", () => {
   it("counts hints up to the challenge's hint limit", () => {
-    const start = createSession(makeChallenge());
+    const start = createSession(makeFixConfig());
     const hint = { type: "HINT_REVEALED" } as const;
 
     const next = apply(start, hint, hint, hint, hint, hint);
@@ -194,29 +213,64 @@ describe("HINT_REVEALED", () => {
   });
 });
 
-describe("DIAGNOSIS_CHECKED", () => {
-  const start = createSession(makeChallenge());
+describe("DIAGNOSIS_ACCEPTED in a diagnosis-mode session", () => {
+  const start = createSession(makeDiagnosisConfig());
+  const accepted: SessionEvent = { type: "DIAGNOSIS_ACCEPTED" };
 
-  it("counts wrong diagnoses", () => {
-    const next = apply(
-      start,
-      { type: "DIAGNOSIS_CHECKED", correct: false },
-      { type: "DIAGNOSIS_CHECKED", correct: false },
-    );
+  it("solves the session", () => {
+    const next = apply(start, accepted);
 
-    assert.equal(next.wrongDiagnoses, 2);
-    assert.equal(next.diagnosed, false);
+    assert.equal(next.diagnosed, true);
+    assert.equal(next.status, "solved");
   });
 
-  it("records a correct diagnosis once and ignores later attempts", () => {
+  it("is idempotent: repeats return the very same state", () => {
+    const solved = apply(start, accepted);
+
+    assert.equal(apply(solved, accepted), solved);
+    assert.deepEqual(apply(solved, accepted, accepted), solved);
+  });
+
+  it("ignores every event that only makes sense in Fix Mode", () => {
+    const events: SessionEvent[] = [
+      { type: "FILE_EDITED", path: "src/main.js", contents: "changed" },
+      { type: "RUN_COMPLETED", report: passingAllReport() },
+      { type: "HINT_REVEALED" },
+      { type: "REVEALED" },
+    ];
+
+    for (const event of events) {
+      assert.equal(sessionReducer(start, event), start);
+    }
+  });
+});
+
+describe("DIAGNOSIS_ACCEPTED in a Fix Mode session", () => {
+  const start = createSession(makeFixConfig());
+
+  it("records the diagnosis without solving the session", () => {
+    const next = apply(start, { type: "DIAGNOSIS_ACCEPTED" });
+
+    assert.equal(next.diagnosed, true);
+    assert.equal(next.status, "in_progress");
+    assert.equal(next.passedAll, false);
+  });
+
+  it("is idempotent: repeats return the very same state", () => {
+    const diagnosed = apply(start, { type: "DIAGNOSIS_ACCEPTED" });
+
+    assert.equal(apply(diagnosed, { type: "DIAGNOSIS_ACCEPTED" }), diagnosed);
+  });
+
+  it("still solves once the tests pass after a diagnosis", () => {
     const next = apply(
       start,
-      { type: "DIAGNOSIS_CHECKED", correct: true },
-      { type: "DIAGNOSIS_CHECKED", correct: false },
+      { type: "DIAGNOSIS_ACCEPTED" },
+      { type: "RUN_COMPLETED", report: passingAllReport() },
     );
 
     assert.equal(next.diagnosed, true);
-    assert.equal(next.wrongDiagnoses, 0);
+    assert.equal(next.status, "solved");
   });
 });
 
@@ -225,12 +279,12 @@ describe("terminal states", () => {
     { type: "FILE_EDITED", path: "src/main.js", contents: "changed" },
     { type: "RUN_COMPLETED", report: passingAllReport() },
     { type: "HINT_REVEALED" },
-    { type: "DIAGNOSIS_CHECKED", correct: true },
+    { type: "DIAGNOSIS_ACCEPTED" },
     { type: "REVEALED" },
   ];
 
   it("freezes a solved session", () => {
-    const solved = apply(createSession(makeChallenge()), {
+    const solved = apply(createSession(makeFixConfig()), {
       type: "RUN_COMPLETED",
       report: passingAllReport(),
     });
@@ -241,7 +295,7 @@ describe("terminal states", () => {
   });
 
   it("freezes a revealed session", () => {
-    const revealed = apply(createSession(makeChallenge()), { type: "REVEALED" });
+    const revealed = apply(createSession(makeFixConfig()), { type: "REVEALED" });
 
     assert.equal(revealed.status, "revealed");
     for (const event of events) {
@@ -252,13 +306,13 @@ describe("terminal states", () => {
 
 describe("purity", () => {
   it("never mutates the state it is given", () => {
-    const start = deepFreeze(createSession(makeChallenge()));
+    const start = deepFreeze(createSession(makeFixConfig()));
     const events: SessionEvent[] = [
       { type: "FILE_EDITED", path: "src/main.js", contents: "changed" },
       { type: "RUN_COMPLETED", report: passingVisibleReport() },
       { type: "HINT_REVEALED" },
-      { type: "DIAGNOSIS_CHECKED", correct: false },
-      { type: "DIAGNOSIS_CHECKED", correct: true },
+      { type: "DIAGNOSIS_ACCEPTED" },
+      { type: "DIAGNOSIS_ACCEPTED" },
       { type: "RUN_COMPLETED", report: passingAllReport() },
     ];
 

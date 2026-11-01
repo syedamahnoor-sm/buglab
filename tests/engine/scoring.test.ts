@@ -4,19 +4,25 @@ import { createSession, sessionReducer } from "@/engine/session/reducer";
 import { computeScore, maxScore } from "@/engine/session/scoring";
 import type { SessionEvent } from "@/engine/types";
 import {
-  makeChallenge,
+  makeFixConfig,
+  makeScoringRules,
   passingAllReport,
   passingVisibleReport,
   visibleOnlyPassReport,
 } from "./fixtures";
 
-const challenge = makeChallenge();
-const rules = challenge.scoring;
+const config = makeFixConfig();
+const rules = makeScoringRules();
 
 function play(...events: SessionEvent[]) {
+  return computeScore(events.reduce(sessionReducer, createSession(config)), rules);
+}
+
+function playWithWrongAttempts(wrongAttempts: number, ...events: SessionEvent[]) {
   return computeScore(
-    events.reduce(sessionReducer, createSession(challenge)),
+    events.reduce(sessionReducer, createSession(config)),
     rules,
+    wrongAttempts,
   );
 }
 
@@ -37,7 +43,7 @@ describe("computeScore", () => {
 
   it("awards the full score for a clean diagnosis and fix", () => {
     const score = play(
-      { type: "DIAGNOSIS_CHECKED", correct: true },
+      { type: "DIAGNOSIS_ACCEPTED" },
       { type: "RUN_COMPLETED", report: passingAllReport() },
     );
 
@@ -52,7 +58,7 @@ describe("computeScore", () => {
 
   it("gives only the visible points when hidden tests still fail", () => {
     const score = play(
-      { type: "DIAGNOSIS_CHECKED", correct: true },
+      { type: "DIAGNOSIS_ACCEPTED" },
       { type: "RUN_COMPLETED", report: visibleOnlyPassReport() },
     );
 
@@ -69,23 +75,26 @@ describe("computeScore", () => {
   });
 
   it("subtracts each wrong diagnosis from the diagnosis points", () => {
-    const score = play(
-      { type: "DIAGNOSIS_CHECKED", correct: false },
-      { type: "DIAGNOSIS_CHECKED", correct: false },
-      { type: "DIAGNOSIS_CHECKED", correct: true },
-    );
+    const score = playWithWrongAttempts(2, { type: "DIAGNOSIS_ACCEPTED" });
 
     assert.equal(score.breakdown.diagnosis, 20);
   });
 
   it("never lets the diagnosis points go negative", () => {
-    const wrong: SessionEvent = { type: "DIAGNOSIS_CHECKED", correct: false };
-    const score = play(
-      ...Array.from({ length: 10 }, () => wrong),
-      { type: "DIAGNOSIS_CHECKED", correct: true },
-    );
+    const score = playWithWrongAttempts(10, { type: "DIAGNOSIS_ACCEPTED" });
 
     assert.equal(score.breakdown.diagnosis, 0);
+  });
+
+  it("applies no penalty unless wrongAttempts is passed", () => {
+    assert.equal(play({ type: "DIAGNOSIS_ACCEPTED" }).breakdown.diagnosis, 30);
+  });
+
+  it("awards the diagnosis points once however often the diagnosis is accepted", () => {
+    const accepted: SessionEvent = { type: "DIAGNOSIS_ACCEPTED" };
+    const score = play(accepted, accepted, accepted);
+
+    assert.equal(score.breakdown.diagnosis, 30);
   });
 
   it("charges hint costs in reveal order", () => {

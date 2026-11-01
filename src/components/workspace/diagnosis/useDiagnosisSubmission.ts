@@ -9,9 +9,13 @@ export type SubmissionState =
 
 /**
  * Client-side submission state machine. Independent of the investigation
- * controller and of any Challenge Engine state.
+ * controller. It holds no Challenge Engine state: it only reports each server
+ * response, unchanged, through `onResponse` (which should be stable).
  */
-export function useDiagnosisSubmission(challengeId: string) {
+export function useDiagnosisSubmission(
+  challengeId: string,
+  onResponse?: (response: DiagnosisResponse) => void,
+) {
   const [state, setState] = useState<SubmissionState>({ phase: "idle" });
   const controllerRef = useRef<AbortController | null>(null);
   const lastSubmissionRef = useRef<DiagnosisSubmission | null>(null);
@@ -25,21 +29,25 @@ export function useDiagnosisSubmission(challengeId: string) {
     lastSubmissionRef.current = submission;
     setState({ phase: "submitting" });
 
+    let response: DiagnosisResponse | null = null;
     try {
-      const response = await submitDiagnosis(challengeId, submission, controller.signal);
-      setState({
-        phase: "done",
-        response,
-        retryAt:
-          response.status === "rate-limited"
-            ? Date.now() + response.retryAfterSeconds * 1000
-            : undefined,
-      });
+      response = await submitDiagnosis(challengeId, submission, controller.signal);
     } catch {
-      // Aborted because the component unmounted: nothing to update.
+      // Aborted because the component unmounted: nothing to update or report.
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null;
     }
+    if (!response) return;
+
+    setState({
+      phase: "done",
+      response,
+      retryAt:
+        response.status === "rate-limited"
+          ? Date.now() + response.retryAfterSeconds * 1000
+          : undefined,
+    });
+    onResponse?.(response);
   }
 
   function retry() {

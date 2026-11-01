@@ -1,10 +1,4 @@
-export type Difficulty = 1 | 2 | 3 | 4 | 5;
-
-export interface WorkspaceFile {
-  path: string;
-  contents: string;
-  readOnly: boolean;
-}
+import type { CompletionMode } from "@/types/workspace";
 
 export interface ScoringRules {
   diagnosisPoints: number;
@@ -15,25 +9,17 @@ export interface ScoringRules {
   hintCosts: readonly number[];
 }
 
-export interface ChallengeSummary {
-  id: string;
-  title: string;
-  summary: string;
-  difficulty: Difficulty;
-  tags: readonly string[];
-  estMinutes: number;
-}
-
-// The only challenge shape the workspace UI ever receives. Answer keys, hint
-// text, hidden tests and the reference solution are deliberately absent.
-export interface ChallengePublic extends ChallengeSummary {
-  language: "javascript";
-  symptom: string;
-  files: readonly WorkspaceFile[];
-  causeOptions: readonly { id: string; label: string }[];
-  scoring: ScoringRules;
-  runTimeoutMs: number;
-}
+// Challenge data (metadata, files, root-cause options) lives in @/types/workspace.
+// A session needs only the challenge's identity and how it is completed.
+export type SessionConfig = { challengeId: string } & (
+  | { completion: "diagnosis" }
+  // Fix Mode is reserved: no challenge, runner or UI uses it yet.
+  | {
+      completion: "fix";
+      editableFiles: Readonly<Record<string, string>>;
+      hintLimit?: number;
+    }
+);
 
 export type TestVisibility = "visible" | "hidden";
 export type TestStatus = "pass" | "fail" | "error" | "timeout";
@@ -71,11 +57,13 @@ export type SessionStatus = "in_progress" | "solved" | "revealed";
 export interface SessionState {
   version: 1;
   challengeId: string;
-  // Current contents of the editable files only.
+  completion: CompletionMode;
+  // Current contents of the editable files only (empty in diagnosis mode).
   files: Readonly<Record<string, string>>;
   hintLimit: number;
   hintsUsed: number;
-  wrongDiagnoses: number;
+  // True once the server has accepted a diagnosis. The engine never counts
+  // wrong attempts: the diagnosis API owns attempts and rate limits.
   diagnosed: boolean;
   runs: number;
   lastRun: RunReport | null;
@@ -86,10 +74,12 @@ export interface SessionState {
 }
 
 export type SessionEvent =
+  // The server confirmed a correct diagnosis. The only diagnosis event: other
+  // outcomes (incorrect, invalid, rate-limited, error) leave the session as is.
+  | { type: "DIAGNOSIS_ACCEPTED" }
   | { type: "FILE_EDITED"; path: string; contents: string }
   | { type: "RUN_COMPLETED"; report: RunReport }
   | { type: "HINT_REVEALED" }
-  | { type: "DIAGNOSIS_CHECKED"; correct: boolean }
   | { type: "REVEALED" };
 
 export interface ScoreBreakdown {

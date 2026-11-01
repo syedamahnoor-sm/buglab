@@ -24,11 +24,13 @@ const statusDisplay: Record<
 
 interface ChallengeOverviewProps {
   challenge: ChallengeSummary;
+  /** The learner's progress. Separate from `challenge`, which is static metadata. */
+  status: InvestigationStatus;
 }
 
-export function ChallengeOverview({ challenge }: ChallengeOverviewProps) {
+export function ChallengeOverview({ challenge, status: investigationStatus }: ChallengeOverviewProps) {
   const difficulty = difficultyDisplay[challenge.difficulty];
-  const status = statusDisplay[challenge.status];
+  const status = statusDisplay[investigationStatus];
 
   return (
     <section
