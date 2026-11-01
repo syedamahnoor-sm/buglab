@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
+import { triggerHadFocus } from "@/lib/focus";
 import type { EvidenceRef, NetworkRequest, NetworkRequestType } from "@/types/investigation";
 import { useListboxNavigation } from "../useListboxNavigation";
 import { RequestDetails } from "./RequestDetails";
 import { RequestRow } from "./RequestRow";
+
+const SEARCH_INPUT_ID = "network-search";
 
 type TypeFilter = "all" | NetworkRequestType;
 
@@ -52,7 +55,7 @@ export function NetworkView({
   }, [requests, typeFilter, query]);
 
   const visibleIds = visibleRequests.map((request) => request.id);
-  const { listRef, tabStopId, handleKeyDown } = useListboxNavigation(
+  const { listRef, tabStopId, handleKeyDown, focusOptionOrFallback } = useListboxNavigation(
     visibleIds,
     selectedId,
     onSelect,
@@ -67,6 +70,7 @@ export function NetworkView({
         <label className="min-w-32 flex-1">
           <span className="sr-only">Filter requests by path</span>
           <input
+            id={SEARCH_INPUT_ID}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -111,7 +115,7 @@ export function NetworkView({
         ref={listRef}
         role="listbox"
         aria-label="Network requests"
-        className="min-h-24 flex-1 overflow-auto py-1 font-mono text-[12px] leading-5"
+        className="min-h-28 flex-1 overflow-auto py-1 font-mono text-[12px] leading-5"
       >
         {visibleRequests.map((request) => (
           <RequestRow
@@ -133,7 +137,7 @@ export function NetworkView({
       </ul>
 
       {selected && (
-        <div className="flex max-h-[60%] shrink-0 flex-col overflow-hidden border-t border-border-strong bg-surface-sunken">
+        <div className="flex max-h-[50%] shrink-0 flex-col overflow-hidden border-t border-border-strong bg-surface-sunken">
           {selectedIsHidden && (
             <p className="border-b border-border px-3 py-1.5 text-[11px] text-warning">
               This request is hidden by the current filters.
@@ -148,7 +152,12 @@ export function NetworkView({
             onRemoveEvidence={() => onRemoveEvidence({ kind: "network", requestId: selected.id })}
             onOpenFile={onOpenFile}
             onShowLog={onShowLog}
-            onClose={() => onSelect(null)}
+            onClose={(event) => {
+              // Return focus to the entry so keyboard users keep their place.
+              const restore = triggerHadFocus(event);
+              onSelect(null);
+              if (restore) focusOptionOrFallback(selected.id, SEARCH_INPUT_ID);
+            }}
           />
         </div>
       )}

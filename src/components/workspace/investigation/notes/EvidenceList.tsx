@@ -1,7 +1,8 @@
 import { Badge } from "@/components/ui/Badge";
 import type { EvidenceSummary } from "@/lib/evidence";
 import type { EvidenceItem, EvidenceRef } from "@/types/investigation";
-import { NotesSection, removeButtonClass } from "./NotesSection";
+import { NotesSection, notesHeadingId, removeButtonClass } from "./NotesSection";
+import { useRemovalFocus } from "./useRemovalFocus";
 
 interface EvidenceListProps {
   items: { item: EvidenceItem; summary: EvidenceSummary }[];
@@ -11,6 +12,12 @@ interface EvidenceListProps {
 }
 
 export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: EvidenceListProps) {
+  // With no evidence left there is no control in the section, so focus its heading.
+  const { listRef, removeWithFocus } = useRemovalFocus(
+    items.map(({ item }) => item.id),
+    notesHeadingId("Evidence"),
+  );
+
   return (
     <NotesSection title="Evidence" count={items.length}>
       {items.length === 0 ? (
@@ -18,7 +25,7 @@ export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: Evide
           Select a log entry or network request and choose “Add to evidence”.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul ref={listRef} className="space-y-1.5">
           {items.map(({ item, summary }) => (
             <li
               key={item.id}
@@ -29,8 +36,8 @@ export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: Evide
                   {summary.kindLabel}
                 </Badge>
                 <div className="min-w-0 flex-1">
-                  <p className="break-words font-mono text-xs text-foreground/90">{summary.title}</p>
-                  <p className="font-mono text-[11px] text-subtle">{summary.detail}</p>
+                  <p className="font-mono text-xs text-foreground/90 wrap-anywhere">{summary.title}</p>
+                  <p className="font-mono text-[11px] text-subtle wrap-anywhere">{summary.detail}</p>
                 </div>
                 <button
                   type="button"
@@ -42,7 +49,8 @@ export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: Evide
                 </button>
                 <button
                   type="button"
-                  onClick={() => onRemove(item.id)}
+                  data-remove-id={item.id}
+                  onClick={(event) => removeWithFocus(event, item.id, onRemove)}
                   aria-label={`Remove evidence: ${summary.title}`}
                   className={`h-6 ${removeButtonClass}`}
                 >

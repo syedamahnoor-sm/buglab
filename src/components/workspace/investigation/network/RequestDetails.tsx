@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { TabList, getTabIds, type TabDefinition } from "@/components/ui/TabList";
 import type { NetworkRequest } from "@/types/investigation";
 import { DetailHeader } from "../DetailHeader";
@@ -18,7 +18,7 @@ interface RequestDetailsProps {
   onRemoveEvidence: () => void;
   onOpenFile: (path: string) => void;
   onShowLog: (logId: string) => void;
-  onClose: () => void;
+  onClose: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
 const linkClass =
@@ -102,7 +102,7 @@ export function RequestDetails({
           <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
             General
           </h4>
-          <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-1 font-mono text-xs">
+          <dl className="grid grid-cols-[minmax(7rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono text-xs">
             <GeneralRow label="Request URL">{request.url}</GeneralRow>
             <GeneralRow label="Method">{request.method}</GeneralRow>
             <GeneralRow label="Status">
@@ -119,7 +119,7 @@ export function RequestDetails({
                 <button
                   type="button"
                   onClick={() => onOpenFile(request.initiator!)}
-                  className={linkClass}
+                  className={`text-left ${linkClass}`}
                 >
                   {request.initiator}
                 </button>

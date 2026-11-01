@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
+import { triggerHadFocus } from "@/lib/focus";
 import type { EvidenceRef } from "@/types/investigation";
 import type { LogEntry, LogLevel } from "@/types/workspace";
 import { useListboxNavigation } from "../useListboxNavigation";
-import { LOG_LEVELS, LogFilterBar } from "./LogFilterBar";
+import { LOG_LEVELS, LOG_SEARCH_INPUT_ID, LogFilterBar } from "./LogFilterBar";
 import { LogDetails } from "./LogDetails";
 import { LogRow } from "./LogRow";
 
@@ -52,7 +53,7 @@ export function LogsView({
   }, [logs, enabledLevels, query]);
 
   const visibleIds = visibleLogs.map((entry) => entry.id);
-  const { listRef, tabStopId, handleKeyDown } = useListboxNavigation(
+  const { listRef, tabStopId, handleKeyDown, focusOptionOrFallback } = useListboxNavigation(
     visibleIds,
     selectedId,
     onSelect,
@@ -92,7 +93,7 @@ export function LogsView({
         ref={listRef}
         role="listbox"
         aria-label="Server logs"
-        className="min-h-24 flex-1 overflow-auto py-1.5 font-mono text-[12px] leading-5"
+        className="min-h-28 flex-1 overflow-auto py-1.5 font-mono text-[12px] leading-5"
       >
         {visibleLogs.map((entry) => (
           <LogRow
@@ -114,7 +115,7 @@ export function LogsView({
       </ul>
 
       {selected && (
-        <div className="max-h-[55%] shrink-0 overflow-auto border-t border-border-strong bg-surface-sunken">
+        <div className="max-h-[50%] shrink-0 overflow-auto border-t border-border-strong bg-surface-sunken">
           {selectedIsHidden && (
             <p className="border-b border-border px-3 py-1.5 text-[11px] text-warning">
               This entry is hidden by the current filters.
@@ -128,7 +129,12 @@ export function LogsView({
             onAddEvidence={() => onAddEvidence({ kind: "log", logId: selected.id })}
             onRemoveEvidence={() => onRemoveEvidence({ kind: "log", logId: selected.id })}
             onShowRequest={onShowRequest}
-            onClose={() => onSelect(null)}
+            onClose={(event) => {
+              // Return focus to the entry so keyboard users keep their place.
+              const restore = triggerHadFocus(event);
+              onSelect(null);
+              if (restore) focusOptionOrFallback(selected.id, LOG_SEARCH_INPUT_ID);
+            }}
           />
         </div>
       )}

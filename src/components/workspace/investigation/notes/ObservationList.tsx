@@ -1,6 +1,9 @@
 import type { Observation } from "@/types/investigation";
 import { AddEntryForm } from "./AddEntryForm";
 import { NotesSection, formatClockTime, removeButtonClass } from "./NotesSection";
+import { useRemovalFocus } from "./useRemovalFocus";
+
+const NEW_OBSERVATION_ID = "notes-new-observation";
 
 interface ObservationListProps {
   observations: Observation[];
@@ -9,6 +12,11 @@ interface ObservationListProps {
 }
 
 export function ObservationList({ observations, onAdd, onRemove }: ObservationListProps) {
+  const { listRef, removeWithFocus } = useRemovalFocus(
+    observations.map((observation) => observation.id),
+    NEW_OBSERVATION_ID,
+  );
+
   return (
     <NotesSection title="Observations" count={observations.length}>
       <AddEntryForm
@@ -16,10 +24,11 @@ export function ObservationList({ observations, onAdd, onRemove }: ObservationLi
         placeholder="What did you notice? (Ctrl+Enter to add)"
         submitLabel="Add"
         multiline
+        inputId={NEW_OBSERVATION_ID}
         onAdd={onAdd}
       />
       {observations.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul ref={listRef} className="space-y-1.5">
           {observations.map((observation) => (
             <li
               key={observation.id}
@@ -28,12 +37,13 @@ export function ObservationList({ observations, onAdd, onRemove }: ObservationLi
               <time className="shrink-0 pt-0.5 font-mono text-[11px] text-subtle">
                 {formatClockTime(observation.createdAt)}
               </time>
-              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-xs leading-5 text-foreground/90">
+              <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs wrap-anywhere leading-5 text-foreground/90">
                 {observation.text}
               </p>
               <button
                 type="button"
-                onClick={() => onRemove(observation.id)}
+                data-remove-id={observation.id}
+                onClick={(event) => removeWithFocus(event, observation.id, onRemove)}
                 aria-label="Remove observation"
                 className={`h-6 ${removeButtonClass}`}
               >

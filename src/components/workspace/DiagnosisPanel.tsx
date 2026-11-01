@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { PanelExpandToggle, type PanelLayoutState } from "@/components/ui/PanelExpandToggle";
 import { ClipboardIcon } from "@/components/ui/icons";
 import {
   validateDiagnosisSubmission,
@@ -22,8 +23,11 @@ interface DiagnosisPanelProps {
   evidence: EvidenceSummary[];
   validationContext: DiagnosisValidationContext;
   onManageEvidence: () => void;
+  layout?: PanelLayoutState;
   className?: string;
 }
+
+const BODY_ID = "diagnosis-panel-body";
 
 function firstError(errors: DiagnosisFieldError[], field: DiagnosisFieldError["field"]) {
   return errors.find((error) => error.field === field)?.message;
@@ -44,6 +48,7 @@ export function DiagnosisPanel({
   evidence,
   validationContext,
   onManageEvidence,
+  layout,
   className,
 }: DiagnosisPanelProps) {
   const [rootCauseId, setRootCauseId] = useState<string | null>(null);
@@ -92,6 +97,25 @@ export function DiagnosisPanel({
       icon={<ClipboardIcon />}
       className={className}
       bodyClassName="p-3"
+      bodyId={BODY_ID}
+      collapsed={layout?.collapsed}
+      actions={
+        layout && (
+          <>
+            {layout.collapsed && (
+              <span className="hidden font-mono text-[11px] text-subtle xl:inline">
+                {isConfirmed ? "Confirmed" : `${evidence.length} evidence`}
+              </span>
+            )}
+            <PanelExpandToggle
+              panelLabel="Diagnosis"
+              expanded={layout.expanded}
+              controls={BODY_ID}
+              onToggle={layout.onToggle}
+            />
+          </>
+        )
+      }
     >
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
         <fieldset disabled={isSubmitting || isConfirmed} className="flex flex-col gap-4">

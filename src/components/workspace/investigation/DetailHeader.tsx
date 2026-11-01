@@ -1,17 +1,17 @@
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { CloseIcon } from "@/components/ui/icons";
 
 interface DetailHeaderProps {
   title: ReactNode;
   closeLabel: string;
-  onClose: () => void;
+  onClose: (event: MouseEvent<HTMLButtonElement>) => void;
   actions?: ReactNode;
 }
 
 export function DetailHeader({ title, closeLabel, onClose, actions }: DetailHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface px-3 py-1.5">
-      <h3 className="min-w-0 truncate font-mono text-xs text-foreground">{title}</h3>
+      <h3 className="min-w-0 flex-1 font-mono text-xs text-foreground wrap-anywhere">{title}</h3>
       <div className="flex shrink-0 items-center gap-2">
         {actions}
         <button

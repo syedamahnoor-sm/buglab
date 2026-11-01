@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Panel } from "@/components/ui/Panel";
+import { PanelExpandToggle, type PanelLayoutState } from "@/components/ui/PanelExpandToggle";
 import { TabList, getTabIds, type TabDefinition } from "@/components/ui/TabList";
 import { TerminalIcon } from "@/components/ui/icons";
 import { getEvidenceId, type EvidenceSummary } from "@/lib/evidence";
@@ -24,8 +25,11 @@ interface InvestigationConsoleProps {
   onOpenFile: (path: string) => void;
   activeTab: ConsoleTab;
   onTabChange: (tab: ConsoleTab) => void;
+  layout?: PanelLayoutState;
   className?: string;
 }
+
+const BODY_ID = "investigation-console-body";
 
 function CountBadge({ children }: { children: ReactNode }) {
   return (
@@ -45,6 +49,7 @@ export function InvestigationConsole({
   onOpenFile,
   activeTab,
   onTabChange: setActiveTab,
+  layout,
   className,
 }: InvestigationConsoleProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -119,6 +124,18 @@ export function InvestigationConsole({
       icon={<TerminalIcon />}
       className={className}
       bodyClassName="flex flex-col bg-surface-sunken"
+      bodyId={BODY_ID}
+      collapsed={layout?.collapsed}
+      actions={
+        layout && (
+          <PanelExpandToggle
+            panelLabel="Investigation Console"
+            expanded={layout.expanded}
+            controls={BODY_ID}
+            onToggle={layout.onToggle}
+          />
+        )
+      }
       footer="Session only · notes and evidence reset on refresh"
     >
       <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">

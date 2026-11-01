@@ -44,12 +44,14 @@ export function EvidenceReview({ evidence, error, onManage }: EvidenceReviewProp
           {evidence.map((item) => (
             <li
               key={item.id}
-              className="flex items-center gap-2 rounded border border-border bg-surface-sunken px-2 py-1 font-mono text-[11px]"
+              className="flex items-start gap-2 rounded border border-border bg-surface-sunken px-2 py-1 font-mono text-[11px] leading-4"
             >
-              <span className={item.kindLabel === "Log" ? "text-info" : "text-accent"}>
+              <span className={`shrink-0 ${item.kindLabel === "Log" ? "text-info" : "text-accent"}`}>
                 {item.kindLabel === "Log" ? "LOG" : "NET"}
               </span>
-              <span className="truncate text-foreground/85" title={item.title}>
+              {/* Two-line preview; the full text is in the tooltip, the accessible
+                  name and the Notes evidence list. */}
+              <span className="line-clamp-2 min-w-0 text-foreground/85 wrap-anywhere" title={item.title}>
                 {item.title}
               </span>
             </li>
