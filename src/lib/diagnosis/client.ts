@@ -1,15 +1,7 @@
 import type { DiagnosisResponse, DiagnosisSubmission } from "@/types/diagnosis";
+import { isDiagnosisResponse } from "./response";
 
 const REQUEST_TIMEOUT_MS = 15_000;
-const KNOWN_STATUSES = new Set(["correct", "incorrect", "invalid", "rate-limited", "error"]);
-
-function isDiagnosisResponse(value: unknown): value is DiagnosisResponse {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    KNOWN_STATUSES.has((value as { status?: unknown }).status as string)
-  );
-}
 
 /** Submits a diagnosis. Never throws: network and parse failures become `error`. */
 export async function submitDiagnosis(
