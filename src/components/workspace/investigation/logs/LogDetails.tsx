@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import type { LogEntry } from "@/types/workspace";
 import { DetailHeader } from "../DetailHeader";
 import { EvidenceToggle } from "../EvidenceToggle";
@@ -11,7 +12,7 @@ interface LogDetailsProps {
   onAddEvidence: () => void;
   onRemoveEvidence: () => void;
   onShowRequest: (requestId: string) => void;
-  onClose: () => void;
+  onClose: (event: MouseEvent<HTMLButtonElement>) => void;
 }
 
 function parseFields(message: string) {
@@ -44,7 +45,7 @@ export function LogDetails({
           />
         }
       />
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 overflow-auto px-3 py-2.5 font-mono text-xs">
+      <dl className="grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 overflow-auto px-3 py-2.5 font-mono text-xs">
         <dt className="text-subtle">Time</dt>
         <dd className="text-foreground/90">
           {incidentDate}T{entry.timestamp}Z
@@ -52,12 +53,12 @@ export function LogDetails({
         <dt className="text-subtle">Level</dt>
         <dd className={`font-semibold ${levelTextClasses[entry.level]}`}>{entry.level}</dd>
         <dt className="text-subtle">Source</dt>
-        <dd className="text-foreground/90">{entry.source}</dd>
+        <dd className="text-foreground/90 wrap-anywhere">{entry.source}</dd>
         <dt className="text-subtle">Message</dt>
-        <dd className="break-words text-foreground/90">{entry.message}</dd>
+        <dd className="text-foreground/90 wrap-anywhere">{entry.message}</dd>
         {fields.map((field) => (
           <div key={field.key} className="contents">
-            <dt className="text-subtle">{field.key}</dt>
+            <dt className="text-subtle wrap-anywhere">{field.key}</dt>
             <dd className="break-all text-accent">{field.value}</dd>
           </div>
         ))}

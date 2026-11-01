@@ -37,7 +37,11 @@ export function RequestRow({
       <span className={`font-semibold ${statusTextClass(request.status)}`}>{request.status}</span>
       <span className="text-muted">{request.method}</span>
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate text-foreground/90">{highlightMatches(request.path, query)}</span>
+        {/* Visual truncation only: the full path stays in the option's accessible
+            name, and the details header shows it wrapped. */}
+        <span className="truncate text-foreground/90" title={request.path}>
+          {highlightMatches(request.path, query)}
+        </span>
         {isCollected && (
           <span title="Collected as evidence" className="size-1.5 shrink-0 rounded-full bg-success">
             <span className="sr-only">Collected as evidence</span>

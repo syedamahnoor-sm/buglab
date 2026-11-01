@@ -18,7 +18,7 @@
   --border-strong: #2e3847;
 
   --muted: #8a94a6;
-  --subtle: #5b6576;
+  --subtle: #7d8799; /* >= 4.8:1 on every surface (WCAG AA) */
 
   --accent: #6ea8fe;
   --success: #4ade80;

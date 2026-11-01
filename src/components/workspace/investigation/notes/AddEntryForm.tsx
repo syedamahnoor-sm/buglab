@@ -6,6 +6,8 @@ interface AddEntryFormProps {
   submitLabel: string;
   multiline?: boolean;
   onAdd: (text: string) => void;
+  /** Stable id for the field, so other controls can move focus to it. */
+  inputId?: string;
 }
 
 export function AddEntryForm({
@@ -14,8 +16,10 @@ export function AddEntryForm({
   submitLabel,
   multiline = false,
   onAdd,
+  inputId: providedId,
 }: AddEntryFormProps) {
-  const inputId = useId();
+  const generatedId = useId();
+  const inputId = providedId ?? generatedId;
   const [text, setText] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

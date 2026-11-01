@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Panel } from "@/components/ui/Panel";
 import { CodeIcon, LockIcon } from "@/components/ui/icons";
 import { getFileLanguage, getLanguageLabel } from "@/lib/file-language";
+import { getFileName, getFolderPrefix } from "@/lib/file-tree";
 import type { ScenarioFile } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
 import { EditorTabs, getTabId } from "./EditorTabs";
@@ -48,7 +49,19 @@ export function EditorPanel({
       }
       footer={
         <div className="flex items-center justify-between gap-3 font-mono">
-          <span className="truncate">{activeFile?.path ?? "No file open"}</span>
+          {activeFile ? (
+            // The folder part gives way first, so the file name stays readable.
+            <span className="flex min-w-0" title={activeFile.path}>
+              <span className="min-w-0 shrink-[100] truncate">
+                {getFolderPrefix(activeFile.path)}
+              </span>
+              <span className="min-w-0 truncate text-foreground/80">
+                {getFileName(activeFile.path)}
+              </span>
+            </span>
+          ) : (
+            <span className="truncate">No file open</span>
+          )}
           {language && (
             <span className="shrink-0">{getLanguageLabel(language)} · UTF-8</span>
           )}

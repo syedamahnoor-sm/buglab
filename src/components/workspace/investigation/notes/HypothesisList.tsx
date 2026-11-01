@@ -1,6 +1,9 @@
 import type { Hypothesis, HypothesisStatus } from "@/types/investigation";
 import { AddEntryForm } from "./AddEntryForm";
 import { NotesSection, removeButtonClass } from "./NotesSection";
+import { useRemovalFocus } from "./useRemovalFocus";
+
+const NEW_HYPOTHESIS_ID = "notes-new-hypothesis";
 
 const statusOptions: { value: HypothesisStatus; label: string }[] = [
   { value: "open", label: "Open" },
@@ -22,23 +25,29 @@ interface HypothesisListProps {
 }
 
 export function HypothesisList({ hypotheses, onAdd, onSetStatus, onRemove }: HypothesisListProps) {
+  const { listRef, removeWithFocus } = useRemovalFocus(
+    hypotheses.map((hypothesis) => hypothesis.id),
+    NEW_HYPOTHESIS_ID,
+  );
+
   return (
     <NotesSection title="Hypotheses" count={hypotheses.length}>
       <AddEntryForm
         label="New hypothesis"
         placeholder="What might be causing the incident?"
         submitLabel="Add"
+        inputId={NEW_HYPOTHESIS_ID}
         onAdd={onAdd}
       />
       {hypotheses.length > 0 && (
-        <ul className="space-y-1.5">
+        <ul ref={listRef} className="space-y-1.5">
           {hypotheses.map((hypothesis) => (
             <li
               key={hypothesis.id}
               className="flex items-start gap-2 rounded-md border border-border bg-surface px-2 py-1.5"
             >
               <p
-                className={`min-w-0 flex-1 break-words text-xs leading-5 ${
+                className={`min-w-0 flex-1 text-xs wrap-anywhere leading-5 ${
                   hypothesis.status === "ruled-out" ? "text-subtle line-through" : "text-foreground/90"
                 }`}
               >
@@ -62,7 +71,8 @@ export function HypothesisList({ hypotheses, onAdd, onSetStatus, onRemove }: Hyp
               </label>
               <button
                 type="button"
-                onClick={() => onRemove(hypothesis.id)}
+                data-remove-id={hypothesis.id}
+                onClick={(event) => removeWithFocus(event, hypothesis.id, onRemove)}
                 aria-label={`Remove hypothesis: ${hypothesis.text}`}
                 className={`h-6 ${removeButtonClass}`}
               >

@@ -1,6 +1,7 @@
 import type { LogLevel } from "@/types/workspace";
 
 export const LOG_LEVELS: LogLevel[] = ["DEBUG", "INFO", "WARN", "ERROR"];
+export const LOG_SEARCH_INPUT_ID = "log-search";
 
 const levelActiveClasses: Record<LogLevel, string> = {
   DEBUG: "border-subtle/50 bg-subtle/15 text-muted",
@@ -48,7 +49,7 @@ export function LogFilterBar({
               }`}
             >
               {level}
-              <span className="opacity-70">{levelCounts[level]}</span>
+              <span>{levelCounts[level]}</span>
             </button>
           );
         })}
@@ -57,6 +58,7 @@ export function LogFilterBar({
       <label className="min-w-32 flex-1">
         <span className="sr-only">Search logs</span>
         <input
+          id={LOG_SEARCH_INPUT_ID}
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
