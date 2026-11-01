@@ -1,9 +1,10 @@
 /*
  * These tests render with React's server renderer, so they cover the hook's
- * INITIAL RENDER only. Submitting, loading, retry, reset, duplicate-submission
- * handling and unmount/abort behaviour all depend on effects, state updates or
- * async work, which the server renderer never runs; they need a DOM or browser
- * renderer.
+ * INITIAL RENDER only. Submitting, retry, reset, duplicate-submission handling
+ * and unmount/abort behaviour depend on effects, state updates and async work,
+ * which the server renderer never runs. They are covered, against a small React
+ * stand-in rather than a real renderer, in use-diagnosis-submission-behavior.test.ts.
+ * Anything that needs real React (batching, StrictMode) still needs a DOM renderer.
  */
 import assert from "node:assert/strict";
 import { describe, mock, test } from "node:test";

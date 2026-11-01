@@ -7,6 +7,9 @@ export type SubmissionState =
   | { phase: "submitting" }
   | { phase: "done"; response: DiagnosisResponse; retryAt?: number };
 
+const UNEXPECTED_FAILURE_MESSAGE =
+  "Something went wrong while submitting your diagnosis. Please try again.";
+
 /**
  * Client-side submission state machine. Independent of the investigation
  * controller. It holds no Challenge Engine state: it only reports each server
@@ -32,12 +35,18 @@ export function useDiagnosisSubmission(
     let response: DiagnosisResponse | null = null;
     try {
       response = await submitDiagnosis(challengeId, submission, controller.signal);
-    } catch {
-      // Aborted because the component unmounted: nothing to update or report.
+    } catch (error) {
+      // An abort is the component unmounting: nothing to update or report. Anything
+      // else is a real failure. Surface it so the form never stays on "submitting".
+      if (!controller.signal.aborted) {
+        console.error("Diagnosis submission failed unexpectedly", error);
+        response = { status: "error", message: UNEXPECTED_FAILURE_MESSAGE };
+      }
     } finally {
       if (controllerRef.current === controller) controllerRef.current = null;
     }
-    if (!response) return;
+    // Unmounted while the request was in flight: drop even a late result.
+    if (controller.signal.aborted || !response) return;
 
     setState({
       phase: "done",
