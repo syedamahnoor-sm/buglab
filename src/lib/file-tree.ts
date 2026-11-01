@@ -54,3 +54,37 @@ export function getAncestorPaths(path: string): string[] {
 export function getFileName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1);
 }
+
+/** "src/routes/auth.ts" -> "src/routes/", "INCIDENT.md" -> "" */
+export function getFolderPrefix(path: string): string {
+  return path.slice(0, path.lastIndexOf("/") + 1);
+}
+
+/**
+ * For files that share a name, the shortest trailing folder path that tells
+ * them apart: ["src/a/index.ts", "lib/b/index.ts"] -> "a", "b". Files with a
+ * unique name get no entry; a root-level file is shown as "./".
+ */
+export function getDisambiguatingFolders(paths: readonly string[]): Map<string, string> {
+  const byName = new Map<string, string[]>();
+  for (const path of paths) {
+    const name = getFileName(path);
+    byName.set(name, [...(byName.get(name) ?? []), path]);
+  }
+
+  const folders = new Map<string, string>();
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    const segments = group.map((path) => path.split("/").slice(0, -1));
+    const maxDepth = Math.max(...segments.map((parts) => parts.length));
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const suffixes = segments.map((parts) => parts.slice(-depth).join("/"));
+      if (new Set(suffixes).size === suffixes.length || depth === maxDepth) {
+        group.forEach((path, index) => folders.set(path, suffixes[index] || "./"));
+        break;
+      }
+    }
+  }
+  return folders;
+}

@@ -1,6 +1,7 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { CloseIcon, FileIcon } from "@/components/ui/icons";
-import { getFileName } from "@/lib/file-tree";
+import { getDisambiguatingFolders, getFileName } from "@/lib/file-tree";
+import { revealOffset } from "@/lib/scroll";
 
 export function getTabId(path: string) {
   return `editor-tab-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
@@ -24,6 +25,23 @@ export function EditorTabs({
   onClose,
 }: EditorTabsProps) {
   const listRef = useRef<HTMLDivElement>(null);
+  const folders = getDisambiguatingFolders(openPaths);
+
+  // Keep the active tab visible when it is opened from elsewhere (Explorer,
+  // initiator links). Only the tab strip scrolls, never the page.
+  useEffect(() => {
+    const list = listRef.current;
+    const tab = activePath
+      ? list?.querySelector<HTMLElement>(`#${getTabId(activePath)}`)?.parentElement
+      : null;
+    if (!list || !tab) return;
+    list.scrollLeft = revealOffset(
+      list.scrollLeft,
+      list.clientWidth,
+      tab.offsetLeft,
+      tab.offsetWidth,
+    );
+  }, [activePath, openPaths]);
 
   function focusTab(path: string | undefined) {
     if (!path) return;
@@ -74,11 +92,13 @@ export function EditorTabs({
       ref={listRef}
       role="tablist"
       aria-label="Open files"
-      className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-surface [scrollbar-width:thin]"
+      className="relative flex h-9 shrink-0 items-stretch overflow-x-auto border-b border-border bg-surface [scrollbar-width:thin]"
     >
       {openPaths.map((path) => {
         const isActive = path === activePath;
         const name = getFileName(path);
+        const folder = folders.get(path);
+        const label = folder ? `${name} (${folder})` : name;
 
         return (
           <div
@@ -103,16 +123,24 @@ export function EditorTabs({
                 if (event.button === 1) close(path);
               }}
               onKeyDown={(event) => handleKeyDown(event, path)}
-              className="flex h-full items-center gap-2 pl-3 pr-1.5 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/70"
+              className="flex h-full min-w-0 max-w-48 items-center gap-2 pl-3 pr-1.5 font-mono text-xs outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/70"
             >
-              <FileIcon className="text-subtle" />
-              {name}
+              <FileIcon className="shrink-0 text-subtle" />
+              <span className="truncate">
+                {name}
+                {folder && (
+                  <span className="ml-1.5 text-subtle">
+                    <span className="sr-only">in </span>
+                    {folder}
+                  </span>
+                )}
+              </span>
             </button>
             <button
               type="button"
               tabIndex={-1}
-              aria-label={`Close ${name}`}
-              title={`Close ${name}`}
+              aria-label={`Close ${label}`}
+              title={`Close ${label}`}
               onClick={() => close(path)}
               className={`mr-1.5 flex size-5 items-center justify-center rounded text-subtle hover:bg-border-strong hover:text-foreground ${
                 isActive ? "" : "sm:opacity-0 sm:group-hover:opacity-100"

@@ -7,6 +7,53 @@ export const BUGLAB_THEME = "buglab-dark";
 // namespace, which @monaco-editor/react's `Monaco` type doesn't include yet.
 type MonacoWithTypeScript = Monaco & { typescript?: typeof typescript };
 
+// Colours mirror the tokens in src/app/globals.css.
+export const BUGLAB_THEME_RULES = [
+  { token: "comment", foreground: "7d8799", fontStyle: "italic" },
+  { token: "keyword", foreground: "c4a7ff" },
+  { token: "string", foreground: "9ee6a8" },
+  { token: "number", foreground: "fbbf24" },
+  { token: "type", foreground: "67e8f9" },
+  { token: "identifier", foreground: "d6dce6" },
+  { token: "delimiter", foreground: "8a94a6" },
+  { token: "string.key.json", foreground: "6ea8fe" },
+  { token: "string.value.json", foreground: "9ee6a8" },
+  { token: "keyword.md", foreground: "6ea8fe", fontStyle: "bold" },
+  { token: "strong.md", fontStyle: "bold" },
+
+  { token: "timestamp.log", foreground: "7d8799" },
+  { token: "level.debug.log", foreground: "7d8799" },
+  { token: "level.info.log", foreground: "67e8f9" },
+  { token: "level.warn.log", foreground: "fbbf24", fontStyle: "bold" },
+  { token: "level.error.log", foreground: "f87171", fontStyle: "bold" },
+  { token: "source.log", foreground: "8a94a6" },
+  { token: "method.log", foreground: "6ea8fe" },
+  { token: "status.success.log", foreground: "4ade80" },
+  { token: "status.error.log", foreground: "f87171" },
+  { token: "duration.log", foreground: "7d8799" },
+  { token: "key.log", foreground: "c4a7ff" },
+];
+
+export const BUGLAB_THEME_COLORS: Record<string, string> = {
+  "editor.background": "#0d1117",
+  "editor.foreground": "#d6dce6",
+  "editorGutter.background": "#0d1117",
+  "editorLineNumber.foreground": "#7d8799",
+  "editorLineNumber.activeForeground": "#c3cad6",
+  "editor.lineHighlightBackground": "#151a2380",
+  "editor.lineHighlightBorder": "#00000000",
+  "editor.selectionBackground": "#6ea8fe33",
+  "editor.inactiveSelectionBackground": "#6ea8fe1f",
+  "editorIndentGuide.background1": "#222a36",
+  "editorIndentGuide.activeBackground1": "#2e3847",
+  "editorCursor.foreground": "#6ea8fe",
+  "editorWidget.background": "#151a23",
+  "editorWidget.border": "#2e3847",
+  "scrollbarSlider.background": "#2e384766",
+  "scrollbarSlider.hoverBackground": "#2e3847aa",
+  "scrollbarSlider.activeBackground": "#2e3847",
+};
+
 let configured = false;
 
 /** Registers BugLab's theme, the `log` language, and TS options. Idempotent. */
@@ -14,54 +61,11 @@ export function setupMonaco(monaco: Monaco) {
   if (configured) return;
   configured = true;
 
-  // Colours mirror the tokens in src/app/globals.css.
   monaco.editor.defineTheme(BUGLAB_THEME, {
     base: "vs-dark",
     inherit: true,
-    rules: [
-      { token: "comment", foreground: "5b6576", fontStyle: "italic" },
-      { token: "keyword", foreground: "c4a7ff" },
-      { token: "string", foreground: "9ee6a8" },
-      { token: "number", foreground: "fbbf24" },
-      { token: "type", foreground: "67e8f9" },
-      { token: "identifier", foreground: "d6dce6" },
-      { token: "delimiter", foreground: "8a94a6" },
-      { token: "string.key.json", foreground: "6ea8fe" },
-      { token: "string.value.json", foreground: "9ee6a8" },
-      { token: "keyword.md", foreground: "6ea8fe", fontStyle: "bold" },
-      { token: "strong.md", fontStyle: "bold" },
-
-      { token: "timestamp.log", foreground: "5b6576" },
-      { token: "level.debug.log", foreground: "5b6576" },
-      { token: "level.info.log", foreground: "67e8f9" },
-      { token: "level.warn.log", foreground: "fbbf24", fontStyle: "bold" },
-      { token: "level.error.log", foreground: "f87171", fontStyle: "bold" },
-      { token: "source.log", foreground: "8a94a6" },
-      { token: "method.log", foreground: "6ea8fe" },
-      { token: "status.success.log", foreground: "4ade80" },
-      { token: "status.error.log", foreground: "f87171" },
-      { token: "duration.log", foreground: "5b6576" },
-      { token: "key.log", foreground: "c4a7ff" },
-    ],
-    colors: {
-      "editor.background": "#0d1117",
-      "editor.foreground": "#d6dce6",
-      "editorGutter.background": "#0d1117",
-      "editorLineNumber.foreground": "#3f4856",
-      "editorLineNumber.activeForeground": "#8a94a6",
-      "editor.lineHighlightBackground": "#151a2380",
-      "editor.lineHighlightBorder": "#00000000",
-      "editor.selectionBackground": "#6ea8fe33",
-      "editor.inactiveSelectionBackground": "#6ea8fe1f",
-      "editorIndentGuide.background1": "#222a36",
-      "editorIndentGuide.activeBackground1": "#2e3847",
-      "editorCursor.foreground": "#6ea8fe",
-      "editorWidget.background": "#151a23",
-      "editorWidget.border": "#2e3847",
-      "scrollbarSlider.background": "#2e384766",
-      "scrollbarSlider.hoverBackground": "#2e3847aa",
-      "scrollbarSlider.activeBackground": "#2e3847",
-    },
+    rules: BUGLAB_THEME_RULES,
+    colors: BUGLAB_THEME_COLORS,
   });
 
   monaco.languages.register({ id: "log", extensions: [".log"] });

@@ -6,13 +6,18 @@ interface NotesSectionProps {
   children: ReactNode;
 }
 
+export function notesHeadingId(title: string) {
+  return `notes-${title.toLowerCase().replace(/\s+/g, "-")}`;
+}
+
 export function NotesSection({ title, count, children }: NotesSectionProps) {
-  const headingId = `notes-${title.toLowerCase().replace(/\s+/g, "-")}`;
+  const headingId = notesHeadingId(title);
   return (
     <section aria-labelledby={headingId} className="space-y-2">
       <h3
         id={headingId}
-        className="text-[11px] font-semibold uppercase tracking-wider text-muted"
+        tabIndex={-1}
+        className="rounded-sm text-[11px] font-semibold uppercase tracking-wider text-muted outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
       >
         {title} <span className="font-normal text-subtle">({count})</span>
       </h3>

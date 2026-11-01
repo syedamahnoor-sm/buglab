@@ -1,5 +1,6 @@
 import { ChallengeOverview } from "@/components/challenge/ChallengeOverview";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { SkipLinks } from "@/components/layout/SkipLinks";
 import { WorkspaceClient } from "@/components/workspace/WorkspaceClient";
 import { challenge001 } from "@/data/challenge-001";
 
@@ -8,6 +9,7 @@ export default function Home() {
 
   return (
     <>
+      <SkipLinks />
       <AppHeader />
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
         <ChallengeOverview challenge={scenario.challenge} />

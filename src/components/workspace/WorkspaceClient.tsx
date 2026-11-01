@@ -12,7 +12,8 @@ import { EditorPanel } from "./EditorPanel";
 import { FileExplorer } from "./FileExplorer";
 import { InvestigationConsole, type ConsoleTab } from "./investigation/InvestigationConsole";
 import { useInvestigationController } from "./investigation/useInvestigationController";
-import { WorkspaceLayout } from "./WorkspaceLayout";
+import type { PanelLayoutState } from "@/components/ui/PanelExpandToggle";
+import { WorkspaceLayout, type RightColumnFocus } from "./WorkspaceLayout";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 interface WorkspaceClientProps {
@@ -36,7 +37,8 @@ export function WorkspaceClient({
   rootCauseOptions,
 }: WorkspaceClientProps) {
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("logs");
-  const tree = useMemo(() => buildFileTree(files), [files]);
+  const [rightColumnFocus, setRightColumnFocus] = useState<RightColumnFocus>("split");
+  const tree =useMemo(() => buildFileTree(files), [files]);
   const filesByPath = useMemo(
     () => new Map(files.map((file) => [file.path, file])),
     [files],
@@ -73,7 +75,18 @@ export function WorkspaceClient({
     summary: describeEvidence(item.ref, evidenceSources),
   }));
 
+  // Expand/restore for the two panels sharing the xl right column.
+  function panelLayout(panel: Exclude<RightColumnFocus, "split">): PanelLayoutState {
+    return {
+      expanded: rightColumnFocus === panel,
+      collapsed: rightColumnFocus !== "split" && rightColumnFocus !== panel,
+      onToggle: () => setRightColumnFocus((current) => (current === panel ? "split" : panel)),
+    };
+  }
+
   function showNotes() {
+    // Make sure the console is visible if Diagnosis had been expanded.
+    setRightColumnFocus((current) => (current === "diagnosis" ? "split" : current));
     setConsoleTab("notes");
     requestAnimationFrame(() => {
       document.getElementById(getTabIds("console", "notes").tab)?.focus();
@@ -82,6 +95,7 @@ export function WorkspaceClient({
 
   return (
     <WorkspaceLayout
+      rightColumnFocus={rightColumnFocus}
       explorer={
         <FileExplorer
           tree={tree}
@@ -113,6 +127,7 @@ export function WorkspaceClient({
           canOpenFile={(path) => filesByPath.has(path)}
           onOpenFile={workspace.openFile}
           activeTab={consoleTab}
+          layout={panelLayout("investigation")}
           onTabChange={setConsoleTab}
           className="flex-1"
         />
@@ -125,6 +140,7 @@ export function WorkspaceClient({
           evidence={evidenceItems.map(({ summary }) => summary)}
           validationContext={validationContext}
           onManageEvidence={showNotes}
+          layout={panelLayout("diagnosis")}
           className="flex-1"
         />
       }

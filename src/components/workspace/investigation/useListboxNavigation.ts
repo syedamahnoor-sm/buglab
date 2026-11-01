@@ -50,5 +50,18 @@ export function useListboxNavigation(
     event.preventDefault();
   }
 
-  return { listRef, tabStopId, handleKeyDown };
+  /**
+   * Focuses the option `id`, or the first visible option if it's filtered
+   * out, or the element `fallbackId` (e.g. the filter box) if none are shown.
+   */
+  function focusOptionOrFallback(id: string | null, fallbackId: string) {
+    const list = listRef.current;
+    const target =
+      (id ? list?.querySelector<HTMLElement>(`[data-option-id="${id}"]`) : null) ??
+      list?.querySelector<HTMLElement>('[role="option"]') ??
+      document.getElementById(fallbackId);
+    target?.focus();
+  }
+
+  return { listRef, tabStopId, handleKeyDown, focusOptionOrFallback };
 }

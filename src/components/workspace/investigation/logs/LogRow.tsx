@@ -36,7 +36,7 @@ export function LogRow({
       tabIndex={isTabStop ? 0 : -1}
       onClick={() => onSelect(entry.id)}
       onKeyDown={(event) => onKeyDown(event, entry.id)}
-      className={`relative grid cursor-pointer grid-cols-[auto_auto_1fr] gap-x-3 border-l-2 px-3 py-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/70 sm:grid-cols-[auto_3rem_3.5rem_1fr] ${
+      className={`relative grid cursor-pointer grid-cols-[auto_auto_minmax(0,1fr)] gap-x-3 border-l-2 px-3 py-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/70 sm:grid-cols-[auto_3rem_3.5rem_minmax(0,1fr)] ${
         isSelected
           ? "border-accent bg-accent/10"
           : `border-transparent hover:bg-surface-raised ${entry.level === "ERROR" ? "bg-danger/5" : ""}`
@@ -45,7 +45,7 @@ export function LogRow({
       <time className="text-subtle">{entry.timestamp}</time>
       <span className={`font-semibold ${levelTextClasses[entry.level]}`}>{entry.level}</span>
       <span className="hidden text-muted sm:inline">[{highlightMatches(entry.source, query)}]</span>
-      <span className="col-span-3 break-words pr-4 text-foreground/85 sm:col-span-1">
+      <span className="col-span-3 pr-4 wrap-anywhere text-foreground/85 sm:col-span-1">
         <span className="text-muted sm:hidden">[{highlightMatches(entry.source, query)}] </span>
         {highlightMatches(entry.message, query)}
       </span>

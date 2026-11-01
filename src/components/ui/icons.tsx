@@ -89,6 +89,22 @@ export function CloseIcon(props: IconProps) {
   );
 }
 
+export function ExpandIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" />
+    </BaseIcon>
+  );
+}
+
+export function CollapseIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M13.5 6.5h-4v-4M2.5 9.5h4v4M9.5 6.5l4-4M6.5 9.5l-4 4" />
+    </BaseIcon>
+  );
+}
+
 export function LockIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>
