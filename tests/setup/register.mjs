@@ -1,16 +1,36 @@
 /*
  * Lets Node's built-in test runner load the app's TypeScript modules
- * (Node 24 strips types natively). Only module resolution is customised:
+ * (Node 24 strips types natively). Module resolution is customised:
  * - "@/..." maps to src/ (tsconfig paths)
  * - extensionless relative imports resolve to .ts / .tsx / index.ts
  * - "server-only" resolves to an empty module (Next handles it in builds)
+ *
+ * .tsx modules contain JSX, which type stripping cannot parse, so they are
+ * compiled with the project's own TypeScript compiler. It is loaded the first
+ * time a .tsx file is imported, so test files that never import one pay nothing.
  */
-import { existsSync, statSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { createRequire, registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SRC_DIR = fileURLToPath(new URL("../../src/", import.meta.url));
 const EMPTY_MODULE = "data:text/javascript,export {};";
+const nodeRequire = createRequire(import.meta.url);
+let typescript;
+
+function compileTsx(url) {
+  typescript ??= nodeRequire("typescript");
+  const fileName = fileURLToPath(url);
+  const { outputText } = typescript.transpileModule(readFileSync(fileName, "utf8"), {
+    fileName,
+    compilerOptions: {
+      jsx: typescript.JsxEmit.ReactJSX,
+      module: typescript.ModuleKind.ESNext,
+      target: typescript.ScriptTarget.ES2022,
+    },
+  });
+  return outputText;
+}
 
 function resolveFile(basePath) {
   for (const candidate of [basePath, `${basePath}.ts`, `${basePath}.tsx`, `${basePath}/index.ts`]) {
@@ -43,5 +63,12 @@ registerHooks({
     return resolved.url.endsWith(".ts") && !resolved.format
       ? { ...resolved, format: "module-typescript" }
       : resolved;
+  },
+
+  load(url, context, nextLoad) {
+    if (url.startsWith("file:") && url.endsWith(".tsx")) {
+      return { format: "module", source: compileTsx(url), shortCircuit: true };
+    }
+    return nextLoad(url, context);
   },
 });
