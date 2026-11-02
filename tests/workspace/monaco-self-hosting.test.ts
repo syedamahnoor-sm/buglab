@@ -136,7 +136,10 @@ describe("Monaco asset verification", () => {
 
   test("names the missing directory and tells you how to fix it", () => {
     const root = makeProject();
-    assert.throws(() => verifyMonacoAssets(root), /Monaco 1\.2\.3 assets are missing[\s\S]*npm run monaco:copy/);
+    assert.throws(
+      () => verifyMonacoAssets(root),
+      /Monaco 1\.2\.3 assets are missing[\s\S]*npm run monaco:copy[\s\S]*npm run typecheck/,
+    );
   });
 
   test("names each missing file and worker", () => {
@@ -192,6 +195,15 @@ describe("Monaco version consistency", () => {
     assert.equal(scripts.predev, "npm run monaco:copy");
     assert.equal(scripts.prebuild, "npm run monaco:copy");
     assert.equal(scripts["monaco:copy"], "node scripts/monaco-assets.mjs copy");
+  });
+
+  test("type generation regenerates the assets first, and typecheck runs it before tsc", () => {
+    // `next typegen` loads next.config.ts in the production-build phase, so it
+    // needs the copied assets too, and tsc needs the types it generates.
+    const { scripts } = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
+    assert.equal(scripts.pretypegen, "npm run monaco:copy");
+    assert.equal(scripts.typegen, "next typegen");
+    assert.equal(scripts.typecheck, "npm run typegen && tsc --noEmit");
   });
 
   test("the generated copy is ignored by Git", () => {

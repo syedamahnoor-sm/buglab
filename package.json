@@ -9,6 +9,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pretypegen": "npm run monaco:copy",
+    "typegen": "next typegen",
+    "typecheck": "npm run typegen && tsc --noEmit",
     "monaco:copy": "node scripts/monaco-assets.mjs copy",
     "monaco:verify": "node scripts/monaco-assets.mjs verify",
     "test": "node --import ./tests/setup/register.mjs --test \"tests/**/*.test.ts\""

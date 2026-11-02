@@ -105,7 +105,7 @@ export function verifyMonacoAssets(root = PROJECT_ROOT) {
     throw new Error(
       `Self-hosted Monaco ${version} assets are missing from ${relative(root, vsDir) || vsDir}:\n` +
         missing.map((file) => `  - ${file}`).join("\n") +
-        "\nRun `npm run monaco:copy` (it also runs before `npm run dev` and `npm run build`).",
+        "\nRun `npm run monaco:copy` (it also runs before `npm run dev`, `npm run build` and `npm run typecheck`).",
     );
   }
   return { version, vsDir };

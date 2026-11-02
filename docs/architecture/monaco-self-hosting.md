@@ -9,10 +9,38 @@ code is loaded from a third-party CDN.
 |---|---|
 | `package.json` | Pins `monaco-editor` to an exact version (`0.57.0`). This is the single version source. |
 | `scripts/monaco-assets.mjs copy` | Copies `node_modules/monaco-editor/min/vs` (151 files, ~25 MB) and the licence to `public/monaco/<version>/`. Fails if the installed version differs from the pin or the package layout lacks a required file. Skips the copy when the output is already complete. Removes copies of other versions. |
-| `predev` / `prebuild` | Run the copy before `npm run dev` and `npm run build`. |
+| `predev` / `prebuild` / `pretypegen` | Run the copy before `npm run dev`, `npm run build` and `npm run typegen`. |
+| `typegen` / `typecheck` | `npm run typegen` generates Next.js's route types (such as `LayoutProps`) after the copy. `npm run typecheck` runs it and then `tsc --noEmit`. |
 | `next.config.ts` | In the dev-server and production-build phases, fails with a clear message if the copied files are missing (this also catches a direct `next build`). Exposes `MONACO_VS_PATH` (`/monaco/<version>/vs`) to the client, and serves `/monaco/*` with `Cache-Control: public, max-age=31536000, immutable` (safe because the directory is named after an exact version). |
 | `MonacoEditor.tsx` | Configures `@monaco-editor/react`'s loader with `MONACO_VS_PATH`. If the path is missing, the editor is not started at all, because the loader's built-in default is a jsDelivr URL. |
 | `.gitignore` | Ignores the generated `public/monaco/`. |
+
+### Fresh checkouts, type generation and CI
+
+In a fresh checkout `public/monaco/` and `.next/types/` don't exist yet. The
+Next.js commands that load `next.config.ts` in the dev-server or
+production-build phase therefore need the copy first. That includes
+`next typegen`, which loads the config in the production-build phase. Use the
+npm scripts, which copy first:
+
+```bash
+npm ci
+npm run typecheck   # copies Monaco, runs next typegen, then tsc --noEmit
+npm run lint
+npm test
+npm run build       # copies Monaco, then next build
+```
+
+Running `npx next typegen`, `npx next build` or `npx next dev` directly in a
+fresh checkout stops with "Self-hosted Monaco … assets are missing … run
+`npm run monaco:copy`". That check is deliberate: it keeps a build from
+shipping without the editor. Run `npm run monaco:copy` once, or use the npm
+scripts. A bare `npx tsc --noEmit` without generated types fails on
+`LayoutProps`, whatever Monaco does, so use `npm run typecheck`.
+`npm test` and `npm run lint` don't load `next.config.ts` in those phases and
+need no copy.
+
+### Loading the editor
 
 The loader adds `<vs>/loader.js` as a script, then loads the editor chunks and
 `editor/editor.main.css`. Workers are started from small `blob:` scripts that
