@@ -18,30 +18,46 @@ The loader adds `<vs>/loader.js` as a script, then loads the editor chunks and
 `editor/editor.main.css`. Workers are started from small `blob:` scripts that
 `importScripts()` the real worker files, using absolute same-origin URLs.
 
-### Workers: types and instances
+### Workers: bundle types and runtime instances
 
-Monaco 0.57.0 ships five worker bundles in `min/vs/assets/`. All five are
-copied and verified, because `editor.main.js` references each of them:
+A worker **bundle type** is a script file Monaco ships; a worker **instance**
+is a running Web Worker. One bundle type can run as more than one instance.
 
-| Worker type | Started for | Started in BugLab? |
+Monaco 0.57.0 ships five worker bundle types in `min/vs/assets/`. All five are
+copied and verified, because `editor.main.js` references each of them.
+BugLab's file types use three of them:
+
+| Worker bundle type | Used for | Used by BugLab? | Instances in BugLab |
+|---|---|---|---|
+| Editor worker (`editor.worker-*.js`) | Generic editor services, any file | Yes | 1 |
+| TypeScript worker (`ts.worker-*.js`) | TypeScript and JavaScript language services | Yes | Up to 2: one for TypeScript, one for JavaScript |
+| JSON worker (`json.worker-*.js`) | `.json` files | Yes | 1 |
+| CSS worker (`css.worker-*.js`) | CSS, SCSS, Less | No (no such files in the workspace) | 0 |
+| HTML worker (`html.worker-*.js`) | HTML, Handlebars, Razor | No (no such files in the workspace) | 0 |
+
+The TypeScript bundle runs twice because Monaco keeps separate TypeScript and
+JavaScript language services, each with its own worker. Files of the same
+language share an instance: every `.ts` file uses the TypeScript instance, and
+every `.js` file uses the JavaScript instance. Markdown, `.log` and plain-text
+files start no language worker.
+
+Instances start lazily, the first time a language needs one. Observed in
+headless Chrome against `next start`, opening files one at a time:
+
+| After opening | Instances | By bundle type |
 |---|---|---|
-| Editor worker | Generic editor services, any file | Yes |
-| TypeScript worker | `.ts` and `.js` files | Yes |
-| JSON worker | `.json` files | Yes |
-| CSS worker | CSS, SCSS, Less | No (no such files in the workspace) |
-| HTML worker | HTML, Handlebars, Razor | No (no such files in the workspace) |
+| `INCIDENT.md` (initial file) | 1 | editor |
+| `src/server.ts` | 2 | editor, TypeScript |
+| `src/routes/auth.ts` | 2 | unchanged: same TypeScript instance |
+| `public/login.js` | 3 | editor, TypeScript ×2 |
+| `public/dashboard.js` | 3 | unchanged: same JavaScript instance |
+| `package.json` | 4 | editor, TypeScript ×2, JSON |
 
-Markdown, `.log` and plain-text files have no language worker.
-
-Observed in headless Chrome, on both `next start` and `next dev`, with and
-without jsDelivr blocked: after opening `INCIDENT.md`, `src/server.ts` and
-`package.json`, there were exactly **three worker instances**, one each of the
-editor, TypeScript and JSON types. Each loaded its script from
-`/monaco/0.57.0/vs/assets/`. Workers are started lazily, the first time a type
-is needed, and one instance of a type serves every open file of that language
-(for example, `.ts` and `.js` files share one TypeScript worker). The count in
-a session is therefore the number of worker types needed so far, at most three
-with the current file types.
+So with the current file types, a session runs **at most four worker
+instances from three bundle types**. Every instance loaded its script from
+`/monaco/0.57.0/vs/assets/`. Earlier runs on both `next start` and `next dev`,
+with and without jsDelivr blocked, opened only `INCIDENT.md`, a `.ts` file
+and `package.json`, and saw three instances, as the table predicts.
 
 ## Upgrading Monaco
 
