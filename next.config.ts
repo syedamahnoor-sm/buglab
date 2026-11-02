@@ -1,16 +1,17 @@
 import type { NextConfig } from "next";
-import { PHASE_DEVELOPMENT_SERVER, PHASE_PRODUCTION_BUILD } from "next/constants.js";
 import {
   MONACO_PUBLIC_DIR,
+  MONACO_VERIFY_PHASES,
   monacoVsPath,
   readPinnedVersion,
   verifyMonacoAssets,
 } from "./scripts/monaco-assets.mjs";
 
 export default function nextConfig(phase: string): NextConfig {
-  // Monaco is served from public/monaco/<version>/vs. Fail early and clearly
-  // if those files weren't generated, rather than shipping a broken editor.
-  if (phase === PHASE_PRODUCTION_BUILD || phase === PHASE_DEVELOPMENT_SERVER) {
+  // Monaco is served from public/monaco/<version>/vs. In the production-build
+  // and dev-server phases, fail early and clearly if those files weren't
+  // generated, rather than shipping a broken editor.
+  if (MONACO_VERIFY_PHASES.includes(phase)) {
     verifyMonacoAssets();
   }
 

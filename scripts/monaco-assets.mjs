@@ -27,8 +27,21 @@ export const REQUIRED_FILES = [
   "editor/editor.main.css",
 ];
 
-/** Worker bundles (content-hashed names) Monaco starts for our file types. */
+/**
+ * Worker bundles (content-hashed names) that editor.main.js references. Our
+ * file types start the editor, TypeScript and JSON workers; the CSS and HTML
+ * ones are never started but are still referenced, so they must be served.
+ */
 export const REQUIRED_WORKERS = ["editor.worker-", "json.worker-", "ts.worker-", "css.worker-", "html.worker-"];
+
+/**
+ * Next.js phases in which next.config.ts checks the copied files: the values
+ * of PHASE_PRODUCTION_BUILD and PHASE_DEVELOPMENT_SERVER. Written out rather
+ * than imported because next/constants is CommonJS without an exports map, so
+ * its named exports can't be imported reliably from plain Node ESM (tests).
+ * A test checks these still match Next's own constants.
+ */
+export const MONACO_VERIFY_PHASES = ["phase-production-build", "phase-development-server"];
 
 const PROJECT_ROOT = fileURLToPath(new URL("..", import.meta.url));
 

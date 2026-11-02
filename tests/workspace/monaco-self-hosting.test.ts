@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  MONACO_VERIFY_PHASES,
   REQUIRED_FILES,
   REQUIRED_WORKERS,
   copyMonacoAssets,
@@ -177,6 +179,12 @@ describe("Monaco version consistency", () => {
     assert.deepEqual(monacoRule?.headers, [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }]);
     // Only the versioned Monaco files are cached forever.
     assert.equal(rules.length, 1);
+  });
+
+  test("next.config.ts verifies the assets in Next's own build and dev phases", () => {
+    // require() reads next/constants reliably; ESM named imports of it don't.
+    const { PHASE_PRODUCTION_BUILD, PHASE_DEVELOPMENT_SERVER } = createRequire(import.meta.url)("next/constants");
+    assert.deepEqual(MONACO_VERIFY_PHASES, [PHASE_PRODUCTION_BUILD, PHASE_DEVELOPMENT_SERVER]);
   });
 
   test("dev and build regenerate the assets first", () => {
