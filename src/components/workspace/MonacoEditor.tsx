@@ -6,12 +6,13 @@ import { BUGLAB_THEME, setupMonaco } from "@/lib/monaco-setup";
 import type { EditorLanguage } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
 
-// Monaco's runtime is fetched from jsDelivr. Keep this in sync with the
-// `monaco-editor` version in package.json so runtime and types match.
-const MONACO_VERSION = "0.57.0";
-loader.config({
-  paths: { vs: `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs` },
-});
+// Monaco's runtime is served from our own origin (public/monaco/<version>/vs,
+// copied by scripts/monaco-assets.mjs). next.config.ts sets the path from the
+// pinned `monaco-editor` version, so runtime, copied files and types match.
+// Without it the editor isn't started at all: the loader's built-in default
+// would fetch Monaco from a third-party CDN.
+const MONACO_VS_PATH = process.env.MONACO_VS_PATH;
+if (MONACO_VS_PATH) loader.config({ paths: { vs: MONACO_VS_PATH } });
 
 interface MonacoEditorProps {
   path: string;
@@ -22,9 +23,10 @@ interface MonacoEditorProps {
 // Each file gets its own Monaco model keyed by `path`, so switching tabs
 // keeps content, scroll position, and cursor per file.
 export function MonacoEditor({ path, content, language }: MonacoEditorProps) {
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(!MONACO_VS_PATH);
 
   useEffect(() => {
+    if (!MONACO_VS_PATH) return;
     const init = loader.init();
     init.catch((error: { type?: string }) => {
       if (error?.type !== "cancelation") setLoadFailed(true);
@@ -37,7 +39,7 @@ export function MonacoEditor({ path, content, language }: MonacoEditorProps) {
       <div role="alert" className="flex h-full items-center justify-center p-6 text-center">
         <p className="max-w-sm text-sm text-muted">
           The code editor couldn&apos;t be loaded. Check your network connection
-          (Monaco is served from cdn.jsdelivr.net) and reload the page.
+          and reload the page.
         </p>
       </div>
     );
