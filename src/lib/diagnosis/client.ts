@@ -30,7 +30,14 @@ export async function submitDiagnosis(
         signal: request.signal,
       },
     );
-    const body: unknown = await response.json().catch(() => null);
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      // A read that was cancelled or timed out is not a bad body: let the handler below
+      // classify it. Any other failure (a parse error, a dropped connection) stays "unexpected".
+      if (request.signal.aborted) throw error;
+    }
     if (isDiagnosisResponse(body)) return body;
     return { status: "error", message: `Unexpected response from the server (${response.status}).` };
   } catch (error) {
