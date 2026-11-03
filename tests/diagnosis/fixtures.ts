@@ -30,17 +30,22 @@ export function submission(overrides: Partial<DiagnosisSubmission> = {}): Diagno
 }
 
 /** A handler with fresh limiters and a controllable clock. */
-export function createTestHandler(options: { trustedProxyHops?: number } = {}) {
+export function createTestHandler(options: { trustedProxyHops?: number; appOrigin?: string | null } = {}) {
   let now = Date.parse("2026-10-31T10:00:00Z");
   const clock = () => now;
+  const wrongAttempts = new FixedWindowLimiter({ limit: 3, windowMs: 10 * 60_000, now: clock });
+  const ipSubmissions = new FixedWindowLimiter({ limit: 10, windowMs: 10 * 60_000, now: clock });
   const handler = createDiagnosisHandler({
     registry: createDefaultRegistry(),
-    wrongAttempts: new FixedWindowLimiter({ limit: 3, windowMs: 10 * 60_000, now: clock }),
-    ipSubmissions: new FixedWindowLimiter({ limit: 10, windowMs: 10 * 60_000, now: clock }),
+    wrongAttempts,
+    ipSubmissions,
     trustedProxyHops: options.trustedProxyHops ?? 0,
+    appOrigin: options.appOrigin ?? null,
   });
   return {
     handler,
+    wrongAttempts,
+    ipSubmissions,
     advance(ms: number) {
       now += ms;
     },
@@ -52,13 +57,15 @@ interface PostOptions {
   rawBody?: string;
   headers?: Record<string, string>;
   challengeId?: string;
+  /** The URL the server sees, e.g. a proxy's upstream address. */
+  baseUrl?: string;
 }
 
 export async function post(
   handler: ReturnType<typeof createDiagnosisHandler>,
-  { body, rawBody, headers = {}, challengeId = CHALLENGE_ID }: PostOptions = {},
+  { body, rawBody, headers = {}, challengeId = CHALLENGE_ID, baseUrl = "http://localhost:3000" }: PostOptions = {},
 ) {
-  const request = new Request(`http://localhost:3000/api/challenges/${challengeId}/diagnosis`, {
+  const request = new Request(`${baseUrl}/api/challenges/${challengeId}/diagnosis`, {
     method: "POST",
     headers: { "content-type": "application/json", host: "localhost:3000", ...headers },
     body: rawBody ?? JSON.stringify(body ?? submission()),
