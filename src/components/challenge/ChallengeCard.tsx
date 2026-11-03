@@ -7,10 +7,13 @@ interface ChallengeCardProps {
   challenge: ChallengeSummary;
 }
 
+/** The ID of a card's title, for naming the card from outside (e.g. a link around it). */
+export const challengeCardTitleId = (challengeId: string) => `challenge-card-${challengeId}-title`;
+
 /** A compact, presentational summary of one challenge, for lists of challenges. */
 export function ChallengeCard({ challenge }: ChallengeCardProps) {
   const difficulty = difficultyDisplay[challenge.difficulty];
-  const titleId = `challenge-card-${challenge.id}-title`;
+  const titleId = challengeCardTitleId(challenge.id);
 
   return (
     <article
