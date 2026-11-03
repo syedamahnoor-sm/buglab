@@ -3,15 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run monaco:copy",
     "dev": "next dev",
+    "prebuild": "npm run monaco:copy",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pretypegen": "npm run monaco:copy",
+    "typegen": "next typegen",
+    "typecheck": "npm run typegen && tsc --noEmit",
+    "monaco:copy": "node scripts/monaco-assets.mjs copy",
+    "monaco:verify": "node scripts/monaco-assets.mjs verify",
     "test": "node --import ./tests/setup/register.mjs --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "monaco-editor": "^0.57.0",
+    "monaco-editor": "0.57.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"

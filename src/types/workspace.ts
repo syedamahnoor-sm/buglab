@@ -35,11 +35,22 @@ export type FileNode =
   | { kind: "folder"; name: string; path: string; children: FileNode[] }
   | { kind: "file"; name: string; path: string };
 
+/** Monaco language IDs the workspace can display. */
 export type EditorLanguage =
   | "typescript"
   | "javascript"
-  | "markdown"
+  | "python"
+  | "java"
+  | "sql"
+  | "mysql"
+  | "pgsql"
   | "json"
+  | "yaml"
+  | "xml"
+  | "ini"
+  | "shell"
+  | "dockerfile"
+  | "markdown"
   | "log"
   | "plaintext";
 
@@ -47,6 +58,11 @@ export type EditorLanguage =
 export interface ScenarioFile {
   path: string;
   content: string;
+  /**
+   * Overrides the language detected from the file name, for files whose
+   * extension is ambiguous, such as a `.sql` file written for PostgreSQL.
+   */
+  language?: EditorLanguage;
 }
 
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";

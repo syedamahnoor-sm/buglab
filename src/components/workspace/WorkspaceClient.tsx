@@ -110,6 +110,7 @@ export function WorkspaceClient({
       }
       editor={
         <EditorPanel
+          challengeId={challengeId}
           openPaths={workspace.openPaths}
           activeFile={activeFile}
           onActivateTab={workspace.activateTab}
