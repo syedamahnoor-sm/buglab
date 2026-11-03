@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import { afterEach, describe, mock, test } from "node:test";
 import { submitDiagnosis } from "@/lib/diagnosis/client";
 import type { DiagnosisResponse, DiagnosisSubmission } from "@/types/diagnosis";
@@ -25,6 +26,12 @@ const correct: DiagnosisResponse = {
 
 const rateLimited: DiagnosisResponse = { status: "rate-limited", retryAfterSeconds: 60 };
 
+const TIMED_OUT = { status: "error", message: "The server took too long to respond." } as const;
+const UNSUPPORTED = {
+  status: "error",
+  message: "This browser is too old to submit a diagnosis. Please update it and try again.",
+} as const;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -41,20 +48,129 @@ function fetchThatWaitsForAbort() {
   );
 }
 
-const abortSignalApis = AbortSignal as unknown as Record<string, unknown>;
+/**
+ * A fetch that answers at once with headers, then stalls while the body is read. Reading it
+ * (`response.json()`) settles only when the test calls `finish`, or rejects with the request
+ * signal's reason when that signal aborts, as a real fetch does. `bodyStarted` resolves once
+ * the client has begun reading, so a test can abort or time out in that stage and no earlier.
+ */
+function fetchWithStalledBody() {
+  const started = deferred<void>();
+  const release = deferred<unknown>();
+  const fetchMock = mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    const signal = init?.signal;
+    return {
+      status: 200,
+      json: () => {
+        started.resolve();
+        signal?.addEventListener(
+          "abort",
+          () => release.reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError")),
+          { once: true },
+        );
+        return release.promise;
+      },
+    } as unknown as Response;
+  });
+  return { fetchMock, bodyStarted: started.promise, finish: (body: unknown) => release.resolve(body) };
+}
 
-/** Runs `run` with one AbortSignal static removed, as in a browser that lacks it. */
-async function withoutAbortSignalApi(name: "timeout" | "any", run: () => Promise<void>) {
-  const saved = abortSignalApis[name];
-  delete abortSignalApis[name];
+/** A fetch whose headers arrive but whose body cannot be read: `json()` rejects with `failure`. */
+function fetchWithFailingBody(failure: unknown) {
+  return mock.method(
+    globalThis,
+    "fetch",
+    async () => ({ status: 200, json: () => Promise.reject(failure) }) as unknown as Response,
+  );
+}
+
+/**
+ * A scheduler the test controls, in place of the real setTimeout and clearTimeout.
+ * No test waits in real time, and a timer left behind is visible as `pending`.
+ */
+function installFakeTimers() {
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  const pending = new Map<number, () => void>();
+  const requested: number[] = [];
+  let nextId = 1;
+
+  globalThis.setTimeout = ((callback: () => void, ms?: number) => {
+    const id = nextId++;
+    pending.set(id, callback);
+    requested.push(ms ?? 0);
+    return id;
+  }) as unknown as typeof setTimeout;
+  globalThis.clearTimeout = ((id: number) => {
+    pending.delete(id);
+  }) as unknown as typeof clearTimeout;
+
+  return {
+    /** How many timers are scheduled and neither cleared nor fired. */
+    get pending() {
+      return pending.size;
+    },
+    /** The delay of every timer ever scheduled, in order. */
+    requested,
+    /** Fires the oldest scheduled timer, as if its delay had elapsed. */
+    fire() {
+      const [id, callback] = [...pending.entries()][0] ?? [];
+      assert.ok(id !== undefined && callback, "there is no timer to fire");
+      pending.delete(id);
+      callback();
+    },
+    restore() {
+      globalThis.setTimeout = realSetTimeout;
+      globalThis.clearTimeout = realClearTimeout;
+    },
+  };
+}
+
+let fakeTimers: ReturnType<typeof installFakeTimers> | undefined;
+
+function timers() {
+  fakeTimers ??= installFakeTimers();
+  return fakeTimers;
+}
+
+const listenersOn = (signal: AbortSignal) => getEventListeners(signal, "abort").length;
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
+type Statics = Record<string, unknown>;
+const abortSignalStatics = AbortSignal as unknown as Statics;
+const globals = globalThis as unknown as Statics;
+
+/** Runs `run` with some browser primitives removed, as in an older browser. */
+async function withoutPrimitives(
+  missing: { signalStatics?: Array<"timeout" | "any">; globals?: string[] },
+  run: () => Promise<void>,
+) {
+  const savedStatics = (missing.signalStatics ?? []).map((name) => [name, abortSignalStatics[name]] as const);
+  const savedGlobals = (missing.globals ?? []).map((name) => [name, globals[name]] as const);
+  for (const [name] of savedStatics) delete abortSignalStatics[name];
+  for (const [name] of savedGlobals) delete globals[name];
   try {
     await run();
   } finally {
-    abortSignalApis[name] = saved;
+    for (const [name, value] of savedStatics) abortSignalStatics[name] = value;
+    for (const [name, value] of savedGlobals) globals[name] = value;
   }
 }
 
-afterEach(() => mock.restoreAll());
+afterEach(() => {
+  mock.restoreAll();
+  fakeTimers?.restore();
+  fakeTimers = undefined;
+});
 
 describe("submitDiagnosis: requests", () => {
   test("posts the submission as JSON to the challenge's diagnosis endpoint", async () => {
@@ -80,22 +196,29 @@ describe("submitDiagnosis: requests", () => {
     assert.equal(fetchMock.mock.calls[0].arguments[0], "/api/challenges/a%20b%2Fc/diagnosis");
   });
 
-  test("arms a 15 second timeout, and still sends the request, when the caller passes a signal", async () => {
-    const timeoutCalls: unknown[] = [];
-    const realTimeout = abortSignalApis.timeout as (ms: number) => AbortSignal;
-    abortSignalApis.timeout = (ms: number) => {
-      timeoutCalls.push(ms);
-      return realTimeout.call(AbortSignal, ms);
-    };
-    const fetchMock = mock.method(globalThis, "fetch", async () => json(incorrect));
-    try {
-      await submitDiagnosis("challenge-001", submission, new AbortController().signal);
-    } finally {
-      abortSignalApis.timeout = realTimeout;
-    }
+  test("arms one 15 second timeout per request, with or without a caller signal", async () => {
+    const clock = timers();
+    mock.method(globalThis, "fetch", async () => json(incorrect));
 
-    assert.deepEqual(timeoutCalls, [15_000]);
-    assert.equal(fetchMock.mock.callCount(), 1);
+    await submitDiagnosis("challenge-001", submission);
+    await submitDiagnosis("challenge-001", submission, new AbortController().signal);
+
+    assert.deepEqual(clock.requested, [15_000, 15_000]);
+  });
+
+  test("gives fetch its own signal, so aborting the request never aborts the caller's signal", async () => {
+    const clock = timers();
+    const fetchMock = fetchThatWaitsForAbort();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    clock.fire();
+    await pending;
+
+    const init = fetchMock.mock.calls[0].arguments[1] as RequestInit;
+    assert.notEqual(init.signal, caller.signal);
+    assert.equal(init.signal?.aborted, true);
+    assert.equal(caller.signal.aborted, false);
   });
 });
 
@@ -168,107 +291,446 @@ describe("submitDiagnosis: responses", () => {
   });
 });
 
-describe("submitDiagnosis: aborting and timing out", () => {
-  test("rethrows a genuine abort instead of reporting an error result", async () => {
-    fetchThatWaitsForAbort();
-    const controller = new AbortController();
+// The same behaviour must hold whichever of the two static methods the browser has.
+const environments: Array<{ name: string; missing: Array<"timeout" | "any"> }> = [
+  { name: "a browser with AbortSignal.any and AbortSignal.timeout", missing: [] },
+  { name: "a browser without AbortSignal.any", missing: ["any"] },
+  { name: "a browser without AbortSignal.timeout", missing: ["timeout"] },
+  { name: "a browser with neither AbortSignal.any nor AbortSignal.timeout", missing: ["any", "timeout"] },
+];
 
-    const pending = submitDiagnosis("challenge-001", submission, controller.signal);
-    controller.abort();
+for (const environment of environments) {
+  describe(`submitDiagnosis in ${environment.name}`, () => {
+    const inEnvironment = (run: () => Promise<void>) => withoutPrimitives({ signalStatics: environment.missing }, run);
 
-    await assert.rejects(pending, (error: unknown) => error instanceof Error && error.name === "AbortError");
+    test("returns the server's response", () =>
+      inEnvironment(async () => {
+        timers();
+        mock.method(globalThis, "fetch", async () => json(incorrect));
+
+        assert.deepEqual(await submitDiagnosis("challenge-001", submission), incorrect);
+        assert.deepEqual(await submitDiagnosis("challenge-001", submission, new AbortController().signal), incorrect);
+      }));
+
+    test("a caller abort while the request is pending rejects with an AbortError", () =>
+      inEnvironment(async () => {
+        timers();
+        const fetchMock = fetchThatWaitsForAbort();
+        const caller = new AbortController();
+
+        const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+        caller.abort();
+
+        await assert.rejects(pending, (error: unknown) => error instanceof Error && error.name === "AbortError");
+        const init = fetchMock.mock.calls[0].arguments[1] as RequestInit;
+        assert.equal(init.signal?.aborted, true, "the request itself was cancelled");
+      }));
+
+    test("a timeout while the request is pending is reported as its own error result", () =>
+      inEnvironment(async () => {
+        const clock = timers();
+        fetchThatWaitsForAbort();
+
+        const pending = submitDiagnosis("challenge-001", submission, new AbortController().signal);
+        clock.fire();
+
+        assert.deepEqual(await pending, TIMED_OUT);
+      }));
+
+    test("a timeout is reported the same way when the caller passes no signal", () =>
+      inEnvironment(async () => {
+        const clock = timers();
+        fetchThatWaitsForAbort();
+
+        const pending = submitDiagnosis("challenge-001", submission);
+        clock.fire();
+
+        assert.deepEqual(await pending, TIMED_OUT);
+      }));
+
+    test("an already-aborted caller signal rejects at once, without sending a request or arming a timer", () =>
+      inEnvironment(async () => {
+        const clock = timers();
+        const fetchMock = mock.method(globalThis, "fetch", async () => json(incorrect));
+        const caller = new AbortController();
+        caller.abort();
+
+        await assert.rejects(
+          submitDiagnosis("challenge-001", submission, caller.signal),
+          (error: unknown) => error instanceof Error && error.name === "AbortError",
+        );
+
+        assert.equal(fetchMock.mock.callCount(), 0);
+        assert.equal(clock.pending, 0);
+        assert.equal(listenersOn(caller.signal), 0);
+      }));
+
+    test("a caller abort while the response body is being read rejects with an AbortError", () =>
+      inEnvironment(async () => {
+        const clock = timers();
+        const body = fetchWithStalledBody();
+        const caller = new AbortController();
+
+        const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+        await body.bodyStarted;
+        assert.equal(clock.pending, 1, "the timeout still covers the body read");
+        caller.abort();
+
+        await assert.rejects(pending, (error: unknown) => error instanceof Error && error.name === "AbortError");
+      }));
+
+    test("a timeout while the response body is being read is reported as its own error result", () =>
+      inEnvironment(async () => {
+        const clock = timers();
+        const body = fetchWithStalledBody();
+
+        const pending = submitDiagnosis("challenge-001", submission, new AbortController().signal);
+        await body.bodyStarted;
+        clock.fire();
+
+        assert.deepEqual(await pending, TIMED_OUT);
+      }));
+  });
+}
+
+describe("submitDiagnosis: the caller's signal", () => {
+  test("an already-aborted signal rejects with that signal's own reason", async () => {
+    timers();
+    mock.method(globalThis, "fetch", async () => json(incorrect));
+    const caller = new AbortController();
+    const reason = new Error("the learner navigated away");
+    caller.abort(reason);
+
+    await assert.rejects(submitDiagnosis("challenge-001", submission, caller.signal), (error: unknown) => error === reason);
   });
 
-  test("reports a timeout as its own error result", async () => {
-    fetchThatWaitsForAbort();
-    const timeoutController = new AbortController();
-    const realTimeout = abortSignalApis.timeout;
-    abortSignalApis.timeout = () => timeoutController.signal;
-    try {
-      const pending = submitDiagnosis("challenge-001", submission, new AbortController().signal);
-      timeoutController.abort(new DOMException("timed out", "TimeoutError"));
+  test("without a reason on the signal (an older browser), the rejection is still an AbortError", async () => {
+    timers();
+    mock.method(globalThis, "fetch", async () => json(incorrect));
+    const bare = { aborted: true, addEventListener() {}, removeEventListener() {} } as unknown as AbortSignal;
 
-      assert.deepEqual(await pending, { status: "error", message: "The server took too long to respond." });
-    } finally {
-      abortSignalApis.timeout = realTimeout;
-    }
+    await assert.rejects(
+      submitDiagnosis("challenge-001", submission, bare),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
   });
 
-  test("reports a timeout the same way when the caller passes no signal", async () => {
-    fetchThatWaitsForAbort();
-    const timeoutController = new AbortController();
-    const realTimeout = abortSignalApis.timeout;
-    abortSignalApis.timeout = () => timeoutController.signal;
-    try {
-      const pending = submitDiagnosis("challenge-001", submission);
-      timeoutController.abort(new DOMException("timed out", "TimeoutError"));
+  test("forwards the caller's reason to the request when it aborts mid-flight", async () => {
+    timers();
+    const fetchMock = fetchThatWaitsForAbort();
+    const caller = new AbortController();
+    const reason = new Error("cancelled by the form");
 
-      assert.deepEqual(await pending, { status: "error", message: "The server took too long to respond." });
-    } finally {
-      abortSignalApis.timeout = realTimeout;
-    }
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    caller.abort(reason);
+
+    await assert.rejects(pending, (error: unknown) => error === reason);
+    assert.equal((fetchMock.mock.calls[0].arguments[1] as RequestInit).signal?.reason, reason);
+  });
+
+  test("aborting the caller's signal after the request has finished does nothing", async () => {
+    timers();
+    mock.method(globalThis, "fetch", async () => json(correct));
+    const caller = new AbortController();
+
+    assert.deepEqual(await submitDiagnosis("challenge-001", submission, caller.signal), correct);
+
+    assert.doesNotThrow(() => caller.abort());
+    assert.equal(listenersOn(caller.signal), 0);
   });
 });
 
-describe("submitDiagnosis: browsers without the AbortSignal APIs", () => {
-  test("AbortSignal.timeout missing: returns an error result instead of throwing a TypeError", async () => {
+describe("submitDiagnosis: cleaning up timers and listeners", () => {
+  test("while a request is pending it holds exactly one timer and one listener", async () => {
+    const clock = timers();
+    const gate = deferred<Response>();
+    mock.method(globalThis, "fetch", () => gate.promise);
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+
+    assert.equal(clock.pending, 1);
+    assert.equal(listenersOn(caller.signal), 1);
+    gate.resolve(json(correct));
+    await pending;
+  });
+
+  test("a successful request releases both", async () => {
+    const clock = timers();
+    mock.method(globalThis, "fetch", async () => json(correct));
+    const caller = new AbortController();
+
+    await submitDiagnosis("challenge-001", submission, caller.signal);
+
+    assert.equal(clock.pending, 0, "the timeout timer was cleared");
+    assert.equal(listenersOn(caller.signal), 0, "the abort listener was removed");
+  });
+
+  test("a failed request (network error) releases both", async () => {
+    const clock = timers();
+    mock.method(globalThis, "fetch", async () => {
+      throw new TypeError("fetch failed");
+    });
+    const caller = new AbortController();
+
+    await submitDiagnosis("challenge-001", submission, caller.signal);
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a malformed or non-JSON response releases both", async () => {
+    const clock = timers();
+    const caller = new AbortController();
+    mock.method(globalThis, "fetch", async () => new Response("<html>", { status: 502 }));
+    await submitDiagnosis("challenge-001", submission, caller.signal);
+    mock.restoreAll();
+    mock.method(globalThis, "fetch", async () => json({ status: "correct" }));
+    await submitDiagnosis("challenge-001", submission, caller.signal);
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a timeout releases both, straight away and again once the request settles", async () => {
+    const clock = timers();
+    fetchThatWaitsForAbort();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    clock.fire();
+    assert.equal(listenersOn(caller.signal), 0, "the listener is gone as soon as the timeout fires");
+    await pending;
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a caller abort clears the timer straight away and leaves no listener", async () => {
+    const clock = timers();
+    fetchThatWaitsForAbort();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    caller.abort();
+    assert.equal(clock.pending, 0, "no timer is left to fire after the caller has cancelled");
+    await assert.rejects(pending);
+
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("an already-aborted signal leaves nothing behind", async () => {
+    const clock = timers();
+    const caller = new AbortController();
+    caller.abort();
+
+    await assert.rejects(submitDiagnosis("challenge-001", submission, caller.signal));
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("repeated submissions on one signal never accumulate listeners or timers", async () => {
+    const clock = timers();
+    const caller = new AbortController();
+    let calls = 0;
+    mock.method(globalThis, "fetch", async () => {
+      if (++calls % 3 === 0) throw new TypeError("fetch failed");
+      return json(calls % 3 === 1 ? correct : { status: "correct" });
+    });
+
+    for (let i = 0; i < 60; i++) {
+      await submitDiagnosis("challenge-001", submission, caller.signal);
+      assert.equal(listenersOn(caller.signal), 0, `listeners after submission ${i + 1}`);
+      assert.equal(clock.pending, 0, `timers after submission ${i + 1}`);
+    }
+    assert.equal(clock.requested.length, 60);
+  });
+
+  test("overlapping submissions each hold their own timer and listener, and release them all", async () => {
+    const clock = timers();
+    const caller = new AbortController();
+    const gates = Array.from({ length: 5 }, () => deferred<Response>());
+    let index = 0;
+    mock.method(globalThis, "fetch", () => gates[index++].promise);
+
+    const pending = gates.map(() => submitDiagnosis("challenge-001", submission, caller.signal));
+    assert.equal(clock.pending, 5);
+    assert.equal(listenersOn(caller.signal), 5);
+
+    for (const gate of gates) gate.resolve(json(incorrect));
+    await Promise.all(pending);
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+});
+
+describe("submitDiagnosis: while the response body is being read", () => {
+  const UNEXPECTED = { status: "error", message: "Unexpected response from the server (200)." } as const;
+
+  test("holds the timeout and the abort listener until the body has been read", async () => {
+    const clock = timers();
+    const body = fetchWithStalledBody();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    await body.bodyStarted;
+    assert.equal(clock.pending, 1);
+    assert.equal(listenersOn(caller.signal), 1);
+
+    body.finish(correct);
+    assert.deepEqual(await pending, correct);
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a caller abort rejects with the caller's own reason, not a result", async () => {
+    timers();
+    const body = fetchWithStalledBody();
+    const caller = new AbortController();
+    const reason = new Error("the learner navigated away");
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    await body.bodyStarted;
+    caller.abort(reason);
+
+    await assert.rejects(pending, (error: unknown) => error === reason);
+  });
+
+  test("a failure that is not an abort stays an unexpected-response result, whatever the error is called", async () => {
+    const failures: Array<[string, unknown]> = [
+      ["a JSON syntax error", new SyntaxError("Unexpected end of JSON input")],
+      ["a connection dropped mid-body", new TypeError("terminated")],
+      ["an error that merely carries the name AbortError", new DOMException("not ours", "AbortError")],
+    ];
+    timers();
+    for (const [label, failure] of failures) {
+      mock.restoreAll();
+      fetchWithFailingBody(failure);
+      const caller = new AbortController();
+
+      assert.deepEqual(await submitDiagnosis("challenge-001", submission, caller.signal), UNEXPECTED, label);
+      assert.equal(caller.signal.aborted, false, label);
+    }
+  });
+
+  test("a real parse error (a truncated body) is not mistaken for a cancellation or a timeout", async () => {
+    const clock = timers();
+    mock.method(globalThis, "fetch", async () => new Response('{"status":', { status: 200 }));
+    const caller = new AbortController();
+
+    const result = await submitDiagnosis("challenge-001", submission, caller.signal);
+
+    assert.deepEqual(result, UNEXPECTED);
+    assert.notDeepEqual(result, TIMED_OUT);
+    assert.equal(caller.signal.aborted, false);
+    assert.equal(clock.pending, 0);
+  });
+
+  test("a caller abort releases the timer straight away and leaves no listener", async () => {
+    const clock = timers();
+    const body = fetchWithStalledBody();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    await body.bodyStarted;
+    caller.abort();
+    assert.equal(clock.pending, 0, "no timer is left to fire after the caller has cancelled");
+    await assert.rejects(pending);
+
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a timeout releases both, straight away and again once the read settles", async () => {
+    const clock = timers();
+    const body = fetchWithStalledBody();
+    const caller = new AbortController();
+
+    const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+    await body.bodyStarted;
+    clock.fire();
+    assert.equal(listenersOn(caller.signal), 0, "the listener is gone as soon as the timeout fires");
+    assert.deepEqual(await pending, TIMED_OUT);
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("a body that fails for another reason releases both", async () => {
+    const clock = timers();
+    fetchWithFailingBody(new TypeError("terminated"));
+    const caller = new AbortController();
+
+    assert.deepEqual(await submitDiagnosis("challenge-001", submission, caller.signal), UNEXPECTED);
+
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
+  });
+
+  test("repeated timeouts during the body read never accumulate timers or listeners", async () => {
+    const clock = timers();
+    const caller = new AbortController();
+
+    for (let i = 0; i < 20; i++) {
+      mock.restoreAll();
+      const body = fetchWithStalledBody();
+      const pending = submitDiagnosis("challenge-001", submission, caller.signal);
+      await body.bodyStarted;
+      clock.fire();
+      assert.deepEqual(await pending, TIMED_OUT, `submission ${i + 1}`);
+      assert.equal(listenersOn(caller.signal), 0, `listeners after submission ${i + 1}`);
+      assert.equal(clock.pending, 0, `timers after submission ${i + 1}`);
+    }
+    assert.equal(clock.requested.length, 20);
+  });
+});
+
+describe("submitDiagnosis: how the signals are built", () => {
+  test("it does not depend on AbortSignal.timeout or AbortSignal.any, even where they exist", async () => {
+    timers();
+    mock.method(globalThis, "fetch", async () => json(incorrect));
+    const timeout = mock.method(AbortSignal, "timeout");
+    const any = mock.method(AbortSignal, "any");
+
+    await submitDiagnosis("challenge-001", submission, new AbortController().signal);
+
+    assert.equal(timeout.mock.callCount(), 0);
+    assert.equal(any.mock.callCount(), 0);
+  });
+});
+
+describe("submitDiagnosis: browsers without AbortController", () => {
+  test("returns a clear error result instead of throwing, and sends no request", async () => {
+    const clock = timers();
     const fetchMock = mock.method(globalThis, "fetch", async () => json(incorrect));
+    const caller = new AbortController();
 
-    await withoutAbortSignalApi("timeout", async () => {
-      const result = await submitDiagnosis("challenge-001", submission, new AbortController().signal);
-
-      assert.equal(result.status, "error");
-      assert.ok(result.status === "error" && result.message.length > 0, "the error result carries a message");
+    await withoutPrimitives({ globals: ["AbortController"] }, async () => {
+      assert.deepEqual(await submitDiagnosis("challenge-001", submission, caller.signal), UNSUPPORTED);
+      assert.deepEqual(await submitDiagnosis("challenge-001", submission), UNSUPPORTED);
     });
-    assert.equal(fetchMock.mock.callCount(), 0, "no request is sent without timeout protection");
+
+    assert.equal(fetchMock.mock.callCount(), 0, "no request is sent without a way to time it out");
+    assert.equal(clock.pending, 0);
+    assert.equal(listenersOn(caller.signal), 0);
   });
 
-  test("AbortSignal.timeout missing and no caller signal: still an error result, still no request", async () => {
-    const fetchMock = mock.method(globalThis, "fetch", async () => json(incorrect));
-
-    await withoutAbortSignalApi("timeout", async () => {
-      const result = await submitDiagnosis("challenge-001", submission);
-
-      assert.equal(result.status, "error");
-    });
-    assert.equal(fetchMock.mock.callCount(), 0);
-  });
-
-  test("AbortSignal.any missing: returns an error result instead of throwing a TypeError", async () => {
-    const fetchMock = mock.method(globalThis, "fetch", async () => json(incorrect));
-
-    await withoutAbortSignalApi("any", async () => {
-      const result = await submitDiagnosis("challenge-001", submission, new AbortController().signal);
-
-      assert.equal(result.status, "error");
-      assert.ok(result.status === "error" && result.message.length > 0, "the error result carries a message");
-    });
-    assert.equal(fetchMock.mock.callCount(), 0, "no request is sent without abort support");
-  });
-
-  test("the unsupported-browser result explains what to do, and is the same for both missing APIs", async () => {
-    const results: DiagnosisResponse[] = [];
-    await withoutAbortSignalApi("timeout", async () => {
-      results.push(await submitDiagnosis("challenge-001", submission, new AbortController().signal));
-    });
-    await withoutAbortSignalApi("any", async () => {
-      results.push(await submitDiagnosis("challenge-001", submission, new AbortController().signal));
-    });
-
-    assert.deepEqual(results[0], results[1]);
-    assert.ok(results[0].status === "error" && /browser/i.test(results[0].message));
-  });
-
-  test("AbortSignal.any is not needed, and not required, when the caller passes no signal", async () => {
+  test("the unsupported-browser error is not reported for a browser that only lacks the static methods", async () => {
+    timers();
     mock.method(globalThis, "fetch", async () => json(incorrect));
 
-    await withoutAbortSignalApi("any", async () => {
-      assert.deepEqual(await submitDiagnosis("challenge-001", submission), incorrect);
+    await withoutPrimitives({ signalStatics: ["any", "timeout"] }, async () => {
+      assert.deepEqual(await submitDiagnosis("challenge-001", submission, new AbortController().signal), incorrect);
     });
   });
+});
 
-  test("restores the AbortSignal APIs after the checks above", () => {
+describe("submitDiagnosis: test environment", () => {
+  test("restores the browser primitives that the checks above removed", () => {
     assert.equal(typeof AbortSignal.timeout, "function");
     assert.equal(typeof AbortSignal.any, "function");
+    assert.equal(typeof AbortController, "function");
+    assert.equal(typeof setTimeout, "function");
   });
 });

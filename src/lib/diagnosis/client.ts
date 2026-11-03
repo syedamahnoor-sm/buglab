@@ -1,12 +1,10 @@
 import type { DiagnosisResponse, DiagnosisSubmission } from "@/types/diagnosis";
+import { createRequestAbort, UnsupportedBrowserError, type RequestAbort } from "./request-abort";
 import { isDiagnosisResponse } from "./response";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const UNSUPPORTED_BROWSER_MESSAGE =
   "This browser is too old to submit a diagnosis. Please update it and try again.";
-
-/** The browser lacks an abort API that submitDiagnosis needs. Never leaves this module. */
-class UnsupportedBrowserError extends Error {}
 
 /**
  * Submits a diagnosis. Never throws, except to rethrow an abort the caller
@@ -17,16 +15,11 @@ export async function submitDiagnosis(
   submission: DiagnosisSubmission,
   signal?: AbortSignal,
 ): Promise<DiagnosisResponse> {
-  let timeout: AbortSignal | undefined;
+  let request: RequestAbort | undefined;
   try {
-    // AbortSignal.timeout and AbortSignal.any are missing from older browsers, where
-    // calling them throws a TypeError. Without them the request would have no timeout
-    // (or the caller's abort could not be combined with it), so refuse to send it.
-    if (typeof AbortSignal.timeout !== "function" || (signal && typeof AbortSignal.any !== "function")) {
-      throw new UnsupportedBrowserError();
-    }
-    timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-    const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    // One signal that ends on the caller's abort or the timeout. It does not need
+    // AbortSignal.timeout or AbortSignal.any, so older browsers are supported too.
+    request = createRequestAbort(REQUEST_TIMEOUT_MS, signal);
     const response = await fetch(
       `/api/challenges/${encodeURIComponent(challengeId)}/diagnosis`,
       {
@@ -34,10 +27,17 @@ export async function submitDiagnosis(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submission),
         credentials: "same-origin",
-        signal: combined,
+        signal: request.signal,
       },
     );
-    const body: unknown = await response.json().catch(() => null);
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      // A read that was cancelled or timed out is not a bad body: let the handler below
+      // classify it. Any other failure (a parse error, a dropped connection) stays "unexpected".
+      if (request.signal.aborted) throw error;
+    }
     if (isDiagnosisResponse(body)) return body;
     return { status: "error", message: `Unexpected response from the server (${response.status}).` };
   } catch (error) {
@@ -47,9 +47,11 @@ export async function submitDiagnosis(
     if (signal?.aborted) throw error;
     return {
       status: "error",
-      message: timeout?.aborted
+      message: request?.timedOut()
         ? "The server took too long to respond."
         : "Couldn't reach the server. Check your connection.",
     };
+  } finally {
+    request?.dispose();
   }
 }
