@@ -4,6 +4,8 @@
  * - "@/..." maps to src/ (tsconfig paths)
  * - extensionless relative imports resolve to .ts / .tsx / index.ts
  * - "server-only" resolves to an empty module (Next handles it in builds)
+ * - "next/<name>" resolves to next/<name>.js: Next has no exports map, so Node
+ *   ESM needs the extension that bundlers add for it (e.g. next/dynamic)
  *
  * .tsx modules contain JSX, which type stripping cannot parse, so they are
  * compiled with the project's own TypeScript compiler. It is loaded the first
@@ -42,6 +44,7 @@ function resolveFile(basePath) {
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: EMPTY_MODULE, shortCircuit: true };
+    if (/^next\/[a-z-]+$/.test(specifier)) return nextResolve(`${specifier}.js`, context);
 
     let basePath = null;
     if (specifier.startsWith("@/")) {
