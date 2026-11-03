@@ -10,6 +10,7 @@ import type { AttemptStatus, DiagnosisResponse } from "@/types/diagnosis";
 import type { FixedWindowLimiter, LimitStatus } from "./attempt-limiter";
 import { getTrustedClientIp } from "./client-ip";
 import { evaluateDiagnosis } from "./evaluate";
+import { isSameOriginRequest, shouldSetSecureCookie } from "./origin";
 import type { DiagnosisRegistry } from "./registry";
 
 export const MAX_BODY_BYTES = 16 * 1024;
@@ -23,6 +24,11 @@ export interface DiagnosisHandlerOptions {
   /** All valid submissions per trusted client IP, per challenge. */
   ipSubmissions: FixedWindowLimiter;
   trustedProxyHops: number;
+  /**
+   * The app's canonical origin (BUGLAB_APP_ORIGIN, from parseAppOrigin), or
+   * null for the development fallback. See origin.ts.
+   */
+  appOrigin: string | null;
 }
 
 interface RouteContext {
@@ -74,16 +80,6 @@ async function readBodyText(request: Request, maxBytes: number): Promise<string 
   return new TextDecoder().decode(bytes);
 }
 
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return true; // Same-origin fetches may omit it; JSON content type still forces CORS.
-  try {
-    return new URL(origin).host === (request.headers.get("host") ?? new URL(request.url).host);
-  } catch {
-    return false;
-  }
-}
-
 function readAttemptId(request: Request): string | null {
   const cookieHeader = request.headers.get("cookie") ?? "";
   for (const part of cookieHeader.split(";")) {
@@ -96,8 +92,8 @@ function readAttemptId(request: Request): string | null {
   return null;
 }
 
-function attemptCookie(id: string, request: Request) {
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+function attemptCookie(id: string, request: Request, appOrigin: string | null) {
+  const secure = shouldSetSecureCookie(request, appOrigin) ? "; Secure" : "";
   return `${ATTEMPT_COOKIE}=${id}; Path=/api; Max-Age=86400; HttpOnly; SameSite=Strict${secure}`;
 }
 
@@ -108,7 +104,7 @@ export function createDiagnosisHandler(options: DiagnosisHandlerOptions) {
       if (!/^application\/json\s*(;|$)/i.test(contentType)) {
         return respond(415, { status: "error", message: "Content-Type must be application/json." });
       }
-      if (!isSameOrigin(request)) {
+      if (!isSameOriginRequest(request, options.appOrigin)) {
         return respond(403, { status: "error", message: "Cross-origin submissions are not allowed." });
       }
 
@@ -143,7 +139,7 @@ export function createDiagnosisHandler(options: DiagnosisHandlerOptions) {
       const existingAttemptId = readAttemptId(request);
       const attemptId = existingAttemptId ?? crypto.randomUUID();
       const headers = new Headers();
-      if (!existingAttemptId) headers.append("Set-Cookie", attemptCookie(attemptId, request));
+      if (!existingAttemptId) headers.append("Set-Cookie", attemptCookie(attemptId, request, options.appOrigin));
 
       const attemptKey = `${challengeId}:${attemptId}`;
       const attempts = options.wrongAttempts.status(attemptKey);
