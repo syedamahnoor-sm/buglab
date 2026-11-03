@@ -40,8 +40,8 @@ const fixture = (id: string, number: string, title: string): ChallengeSummary =>
 const challenge = challenge001.challenge;
 
 describe("/challenges", () => {
-  test("renders the library with exactly the catalog's playable entry for Challenge 001", () => {
-    assert.equal(renderPage(), renderLibrary([{ challenge, href: "/" }]));
+  test("renders the library with exactly the catalog's entry for Challenge 001", () => {
+    assert.equal(renderPage(), renderLibrary([{ challenge, href: "/challenges/challenge-001" }]));
   });
 
   test("has a clear heading, an introduction and the challenge count", () => {
@@ -53,11 +53,11 @@ describe("/challenges", () => {
     assert.equal(markup.match(/<h1\b/g)?.length, 1, "one page heading");
   });
 
-  test("shows Challenge 001 as the only card, linking to the playable home page", () => {
+  test("shows Challenge 001 as the only card, linking to its own workspace route", () => {
     const markup = renderPage();
     assert.equal(markup.match(/<article\b/g)?.length, 1);
     assert.equal(markup.match(/<a\b/g)?.length, 1);
-    assert.match(markup, /<a aria-labelledby="challenge-card-challenge-001-title"[^>]* href="\/"/);
+    assert.match(markup, /<a aria-labelledby="challenge-card-challenge-001-title"[^>]* href="\/challenges\/challenge-001"/);
     for (const text of [challenge.title, challenge.incident, `Challenge ${challenge.number}`]) {
       assert.ok(markup.includes(text), text);
     }
@@ -126,7 +126,12 @@ describe("/challenges: public data only", () => {
 
   test("the route reads only the public catalog and renders the shared library", () => {
     const page = source("app/challenges/page.tsx");
-    assert.deepEqual(imports(page), ["next", "@/components/challenge/ChallengeLibrary", "@/lib/challenge-catalog"]);
+    assert.deepEqual(imports(page), [
+      "next",
+      "@/components/challenge/ChallengeLibrary",
+      "@/lib/challenge-catalog",
+      "@/lib/challenge-routes",
+    ]);
     assert.doesNotMatch(page, /use client|@\/server\/|answer-key|\.server\b|fetch\(/);
   });
 
@@ -138,7 +143,7 @@ describe("/challenges: public data only", () => {
 
   test("no client component imports the catalog", () => {
     const users = sourceFiles().filter((path) => source(path).includes("@/lib/challenge-catalog"));
-    assert.deepEqual(users, ["app/challenges/page.tsx"]);
+    assert.deepEqual(users.sort(), ["app/challenges/[challengeId]/page.tsx", "app/challenges/page.tsx", "proxy.ts"]);
     for (const path of users) assert.doesNotMatch(source(path), /["']use client["']/, path);
   });
 });
