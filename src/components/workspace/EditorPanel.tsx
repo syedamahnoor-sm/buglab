@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/Badge";
 import { Panel } from "@/components/ui/Panel";
 import { CodeIcon, LockIcon } from "@/components/ui/icons";
-import { getFileLanguage, getLanguageLabel } from "@/lib/file-language";
+import { getLanguageLabel, resolveFileLanguage } from "@/lib/file-language";
 import { getFileName, getFolderPrefix } from "@/lib/file-tree";
 import type { ScenarioFile } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
@@ -19,6 +19,7 @@ const MonacoEditor = dynamic(
 const PANEL_ID = "editor-tabpanel";
 
 interface EditorPanelProps {
+  challengeId: string;
   openPaths: string[];
   activeFile: ScenarioFile | null;
   onActivateTab: (path: string) => void;
@@ -27,13 +28,14 @@ interface EditorPanelProps {
 }
 
 export function EditorPanel({
+  challengeId,
   openPaths,
   activeFile,
   onActivateTab,
   onCloseTab,
   className,
 }: EditorPanelProps) {
-  const language = activeFile ? getFileLanguage(activeFile.path) : null;
+  const language = activeFile ? resolveFileLanguage(activeFile) : null;
 
   return (
     <Panel
@@ -87,9 +89,11 @@ export function EditorPanel({
         {activeFile && language ? (
           <div className="absolute inset-0">
             <MonacoEditor
+              challengeId={challengeId}
               path={activeFile.path}
               content={activeFile.content}
               language={language}
+              openPaths={openPaths}
             />
           </div>
         ) : (

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Editor, { loader } from "@monaco-editor/react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Editor, { loader, type Monaco } from "@monaco-editor/react";
+import { getModelUri, releaseModels, syncModel, type ModelSource } from "@/lib/monaco-models";
 import { BUGLAB_THEME, setupMonaco } from "@/lib/monaco-setup";
 import type { EditorLanguage } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
@@ -15,15 +16,22 @@ const MONACO_VS_PATH = process.env.MONACO_VS_PATH;
 if (MONACO_VS_PATH) loader.config({ paths: { vs: MONACO_VS_PATH } });
 
 interface MonacoEditorProps {
+  challengeId: string;
   path: string;
   content: string;
   language: EditorLanguage;
+  /** Paths of the files open in tabs. Their models are kept; others are disposed. */
+  openPaths: readonly string[];
 }
 
-// Each file gets its own Monaco model keyed by `path`, so switching tabs
-// keeps content, scroll position, and cursor per file.
-export function MonacoEditor({ path, content, language }: MonacoEditorProps) {
+// Each file gets its own Monaco model, named after its challenge and path (see
+// lib/monaco-models.ts), so switching tabs keeps content, scroll position, and
+// cursor per file, and two challenges never share a model.
+export function MonacoEditor({ challengeId, path, content, language, openPaths }: MonacoEditorProps) {
   const [loadFailed, setLoadFailed] = useState(!MONACO_VS_PATH);
+  const monacoRef = useRef<Monaco | null>(null);
+  const uri = getModelUri(challengeId, path);
+  const sourceRef = useRef<ModelSource>({ uri, content, language });
 
   useEffect(() => {
     if (!MONACO_VS_PATH) return;
@@ -33,6 +41,35 @@ export function MonacoEditor({ path, content, language }: MonacoEditorProps) {
     });
     return () => init.cancel();
   }, []);
+
+  // The library looks a model up by `path` in its own (passive) effects and
+  // reuses whatever it finds, so the model is synced first, in a layout effect.
+  // Before the editor exists, beforeMount does the same from sourceRef.
+  useLayoutEffect(() => {
+    sourceRef.current = { uri, content, language };
+    if (monacoRef.current) syncModel(monacoRef.current, sourceRef.current);
+  }, [uri, content, language]);
+
+  // Closed tabs and other challenges' files no longer need a model. The model
+  // shown in the editor is never disposed here; the library disposes it on unmount.
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (!monaco) return;
+    releaseModels(monaco, openPaths.map((openPath) => getModelUri(challengeId, openPath)));
+  }, [challengeId, openPaths, uri]);
+
+  useEffect(
+    () => () => {
+      if (monacoRef.current) releaseModels(monacoRef.current, []);
+    },
+    [],
+  );
+
+  function handleBeforeMount(monaco: Monaco) {
+    setupMonaco(monaco);
+    monacoRef.current = monaco;
+    syncModel(monaco, sourceRef.current);
+  }
 
   if (loadFailed) {
     return (
@@ -47,11 +84,11 @@ export function MonacoEditor({ path, content, language }: MonacoEditorProps) {
 
   return (
     <Editor
-      path={`file:///${path}`}
+      path={uri}
       defaultValue={content}
       language={language}
       theme={BUGLAB_THEME}
-      beforeMount={setupMonaco}
+      beforeMount={handleBeforeMount}
       loading={<EditorLoading />}
       options={{
         readOnly: true,

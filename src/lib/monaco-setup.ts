@@ -21,6 +21,26 @@ export const BUGLAB_THEME_RULES = [
   { token: "keyword.md", foreground: "6ea8fe", fontStyle: "bold" },
   { token: "strong.md", fontStyle: "bold" },
 
+  // Python, Java, SQL and config files (Monaco's built-in grammars).
+  { token: "annotation", foreground: "fbbf24" },
+  { token: "tag.python", foreground: "fbbf24" },
+  { token: "predefined", foreground: "67e8f9" },
+  { token: "operator", foreground: "c4a7ff" },
+  { token: "tag", foreground: "6ea8fe" },
+  { token: "attribute.name", foreground: "c4a7ff" },
+  { token: "attribute.value", foreground: "9ee6a8" },
+  { token: "metatag", foreground: "8a94a6" },
+  { token: "type.yaml", foreground: "6ea8fe" },
+  { token: "key.ini", foreground: "6ea8fe" },
+  // vs-dark styles these tokens specifically, so they need their own rules.
+  { token: "string.sql", foreground: "9ee6a8" },
+  { token: "predefined.sql", foreground: "67e8f9" },
+  { token: "operator.sql", foreground: "c4a7ff" },
+  { token: "number.hex.python", foreground: "fbbf24" },
+  { token: "delimiter.xml", foreground: "8a94a6" },
+  { token: "metatag.xml", foreground: "8a94a6" },
+  { token: "variable.dockerfile", foreground: "6ea8fe" },
+
   { token: "timestamp.log", foreground: "7d8799" },
   { token: "level.debug.log", foreground: "7d8799" },
   { token: "level.info.log", foreground: "67e8f9" },
