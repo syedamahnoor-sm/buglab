@@ -33,10 +33,15 @@ const sessionFiles = sourceFiles(SESSION_DIR);
 const name = (path: string) => relative(ROOT, path).replaceAll("\\", "/");
 
 describe("session module: source guards", () => {
-  test("the module contains the files M1-1 defines, and nothing else", () => {
+  test("the module contains the files the learner-session foundation defines, and nothing else", () => {
     assert.deepEqual(sessionFiles.map(name).sort(), [
+      "src/server/session/attempt-window.ts",
+      "src/server/session/cookie.ts",
       "src/server/session/expiry.ts",
       "src/server/session/memory-store.ts",
+      "src/server/session/request-hash.ts",
+      "src/server/session/service.ts",
+      "src/server/session/snapshots.ts",
       "src/server/session/token.ts",
       "src/server/session/types.ts",
     ]);
@@ -72,8 +77,9 @@ describe("session module: source guards", () => {
     assert.doesNotMatch(withoutComments(source), /globalThis/);
   });
 
-  test("expiry durations are defined in expiry.ts and nowhere else in the module", () => {
-    for (const path of sessionFiles.filter((file) => !file.endsWith("expiry.ts"))) {
+  test("durations are defined in expiry.ts and attempt-window.ts and nowhere else in the module", () => {
+    const homes = ["expiry.ts", "attempt-window.ts"];
+    for (const path of sessionFiles.filter((file) => !homes.some((home) => file.endsWith(home)))) {
       assert.doesNotMatch(withoutComments(read(path)), /\b\d+\s*\*\s*(24|60|1000)\b|86_?400|\b\d{6,}\b/, name(path));
     }
   });
@@ -87,10 +93,43 @@ describe("session module: source guards", () => {
     }
   });
 
-  test("no client-facing type mentions a session token or its hash", () => {
+  test("no client-facing type mentions a token, its hash or an internal learner id", () => {
     for (const path of sourceFiles(join(ROOT, "src/types"))) {
-      assert.doesNotMatch(withoutComments(read(path)), /tokenHash|SessionToken|sessionToken/, name(path));
+      assert.doesNotMatch(
+        withoutComments(read(path)),
+        /tokenHash|SessionToken|sessionToken|learnerId|LearnerRecord|ChallengeSessionRecord/,
+        name(path),
+      );
     }
+  });
+
+  test("this phase adds no public API: nothing under src/app imports the session module", () => {
+    for (const path of sourceFiles(join(ROOT, "src/app"))) {
+      assert.doesNotMatch(read(path), /@\/server\/session|server\/session\//, name(path));
+    }
+  });
+
+  test("no session file imports the challenge loader and registry: the service is given a diagnosis registry and a version function", () => {
+    // Moved here from tests/challenges/source-guards.test.ts, where it covered only service.ts.
+    for (const path of sessionFiles) {
+      assert.doesNotMatch(read(path), /server\/challenges/, name(path));
+    }
+  });
+
+  test("the module reaches challenges only through the injected registry, never the answer key itself", () => {
+    for (const path of sessionFiles) {
+      const code = withoutComments(read(path));
+      assert.doesNotMatch(code, /answer-key|provisionalAnswerKey|challenge-001|createDefaultRegistry/, name(path));
+    }
+  });
+
+  test("the learner cookie is defined once, and the service never reads a completion or id from a caller", () => {
+    const cookieSource = withoutComments(read(join(SESSION_DIR, "cookie.ts")));
+    assert.match(cookieSource, /LEARNER_COOKIE = "buglab_learner"/);
+
+    const service = withoutComments(read(join(SESSION_DIR, "service.ts")));
+    // Identity is parsed from the cookie value. No method takes a learner id, a session id or a completed flag.
+    assert.doesNotMatch(service, /\bcompleted\s*:\s*(true|boolean)|body\.(completed|status)|learnerId\s*:\s*string/);
   });
 
   test("the existing buglab_attempt cookie is not reused as the session identity", () => {
