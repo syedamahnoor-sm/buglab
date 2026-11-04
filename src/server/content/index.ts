@@ -29,9 +29,11 @@ import { answerKey as challenge019 } from "@/data/challenge-019/answer-key.serve
 import { answerKey as challenge020 } from "@/data/challenge-020/answer-key.server";
 import { answerKey as challenge021 } from "@/data/challenge-021/answer-key.server";
 import { answerKey as challenge022 } from "@/data/challenge-022/answer-key.server";
+import { answerKey as challenge023 } from "@/data/challenge-023/answer-key.server";
 import { answerKey as challenge024 } from "@/data/challenge-024/answer-key.server";
 import { answerKey as challenge025 } from "@/data/challenge-025/answer-key.server";
 import { answerKey as challenge026 } from "@/data/challenge-026/answer-key.server";
+import { answerKey as challenge027 } from "@/data/challenge-027/answer-key.server";
 import { answerKey as challenge028 } from "@/data/challenge-028/answer-key.server";
 import { answerKey as challenge029 } from "@/data/challenge-029/answer-key.server";
 import { answerKey as challenge030 } from "@/data/challenge-030/answer-key.server";
@@ -59,9 +61,11 @@ export const AUTHORED_CHALLENGES: readonly AuthoredChallenge[] = [
   challenge020,
   challenge021,
   challenge022,
+  challenge023,
   challenge024,
   challenge025,
   challenge026,
+  challenge027,
   challenge028,
   challenge029,
   challenge030,
