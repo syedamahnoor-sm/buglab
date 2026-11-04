@@ -62,7 +62,7 @@ describe("every current id and public field is preserved", () => {
     const logs = new Set(view.logs.map((entry) => entry.id));
     const files = new Set(view.files.map((file) => file.path));
     for (const request of view.network) {
-      assert.ok(logs.has(request.serverLogId), request.id);
+      assert.ok(request.serverLogId !== undefined && logs.has(request.serverLogId), request.id);
       if (request.initiator !== undefined) assert.ok(files.has(request.initiator), request.id);
     }
     assert.ok(view.network.some((request) => request.initiator !== undefined));

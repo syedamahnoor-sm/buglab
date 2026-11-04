@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { triggerHadFocus } from "@/lib/focus";
+import { linkedLogId } from "@/lib/log-links";
 import type { EvidenceRef, NetworkRequest, NetworkRequestType } from "@/types/investigation";
 import { useListboxNavigation } from "../useListboxNavigation";
 import { RequestDetails } from "./RequestDetails";
@@ -19,6 +20,8 @@ const typeFilters: { id: TypeFilter; label: string }[] = [
 
 interface NetworkViewProps {
   requests: NetworkRequest[];
+  /** IDs of the log lines that exist, so a request's link is shown only when it resolves. */
+  logIds: ReadonlySet<string>;
   incidentDate: string;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
@@ -32,6 +35,7 @@ interface NetworkViewProps {
 
 export function NetworkView({
   requests,
+  logIds,
   incidentDate,
   selectedId,
   onSelect,
@@ -145,6 +149,7 @@ export function NetworkView({
           )}
           <RequestDetails
             request={selected}
+            logId={linkedLogId(selected, logIds)}
             incidentDate={incidentDate}
             canOpenFile={canOpenFile}
             collected={isCollected({ kind: "network", requestId: selected.id })}

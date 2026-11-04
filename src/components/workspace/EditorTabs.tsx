@@ -3,8 +3,17 @@ import { CloseIcon, FileIcon } from "@/components/ui/icons";
 import { getDisambiguatingFolders, getFileName } from "@/lib/file-tree";
 import { revealOffset } from "@/lib/scroll";
 
+/**
+ * A tab's DOM id, unique per path. Letters and digits are kept; every other
+ * character, "-" included, becomes "-<hex code point>-". Since a bare "-" only
+ * ever delimits a code, two different paths can never share an id (a-b.ts,
+ * a_b.ts and a.b.ts used to), and the id is safe in a #selector.
+ */
 export function getTabId(path: string) {
-  return `editor-tab-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  const encoded = Array.from(path, (char) =>
+    /[a-zA-Z0-9]/.test(char) ? char : `-${char.codePointAt(0)!.toString(16)}-`,
+  ).join("");
+  return `editor-tab-${encoded}`;
 }
 
 interface EditorTabsProps {

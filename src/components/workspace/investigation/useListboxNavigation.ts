@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from "react";
+import { findByData } from "@/lib/dom";
 
 /*
  * Keyboard support for a single-select listbox where selection follows
@@ -19,7 +20,7 @@ export function useListboxNavigation(
   function focusAndSelect(id: string | undefined) {
     if (!id) return;
     onSelect(id);
-    listRef.current?.querySelector<HTMLElement>(`[data-option-id="${id}"]`)?.focus();
+    findByData(listRef.current, "data-option-id", id)?.focus();
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>, id: string) {
@@ -57,7 +58,7 @@ export function useListboxNavigation(
   function focusOptionOrFallback(id: string | null, fallbackId: string) {
     const list = listRef.current;
     const target =
-      (id ? list?.querySelector<HTMLElement>(`[data-option-id="${id}"]`) : null) ??
+      (id ? findByData(list, "data-option-id", id) : null) ??
       list?.querySelector<HTMLElement>('[role="option"]') ??
       document.getElementById(fallbackId);
     target?.focus();

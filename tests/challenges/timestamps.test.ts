@@ -200,7 +200,7 @@ describe("a request's link to a log line, and its time, are independent (approve
   });
 
   test("a link is matched exactly: the right id in the wrong case is not a log line", () => {
-    const real = draftOf().scenario.network[0].serverLogId;
+    const real = draftOf().scenario.network[0].serverLogId!;
     const issues = issuesFor((d) => (d.scenario.network[0].serverLogId = real.toUpperCase()));
 
     assert.deepEqual(issues, [`challenge-001: network request "${draftOf().scenario.network[0].id}": serverLogId "${real.toUpperCase()}" is not a log entry`]);

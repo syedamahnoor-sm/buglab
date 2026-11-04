@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Panel } from "@/components/ui/Panel";
 import { FolderIcon } from "@/components/ui/icons";
+import { findByData } from "@/lib/dom";
 import type { FileNode } from "@/types/workspace";
 import { FileTreeItem, type VisibleTreeItem } from "./FileTreeItem";
 
@@ -64,9 +65,7 @@ export function FileExplorer({
 
   function focusPath(path: string | undefined) {
     if (!path) return;
-    treeRef.current
-      ?.querySelector<HTMLElement>(`[data-path="${path}"]`)
-      ?.focus();
+    findByData(treeRef.current, "data-path", path)?.focus();
   }
 
   function activate(item: VisibleTreeItem) {

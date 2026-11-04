@@ -1,4 +1,5 @@
 import { useRef, type MouseEvent } from "react";
+import { findByData } from "@/lib/dom";
 import { neighborAfterRemoval, triggerHadFocus } from "@/lib/focus";
 
 /*
@@ -19,7 +20,7 @@ export function useRemovalFocus(ids: readonly string[], fallbackId: string) {
     const nextId = neighborAfterRemoval(ids, id);
     // Resolve the target before removing: it is still in the DOM either way.
     const target = nextId
-      ? listRef.current?.querySelector<HTMLElement>(`[data-remove-id="${nextId}"]`)
+      ? findByData(listRef.current, "data-remove-id", nextId)
       : document.getElementById(fallbackId);
     onRemove(id);
     if (restore) target?.focus();
