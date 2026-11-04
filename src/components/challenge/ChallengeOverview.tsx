@@ -1,16 +1,7 @@
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { StatusDot } from "@/components/ui/StatusDot";
-import type {
-  ChallengeSummary,
-  Difficulty,
-  InvestigationStatus,
-} from "@/types/workspace";
-
-const difficultyDisplay: Record<Difficulty, { label: string; tone: BadgeTone }> = {
-  beginner: { label: "Beginner", tone: "success" },
-  intermediate: { label: "Intermediate", tone: "warning" },
-  advanced: { label: "Advanced", tone: "danger" },
-};
+import type { ChallengeSummary, InvestigationStatus } from "@/types/workspace";
+import { difficultyDisplay } from "./difficulty";
 
 const statusDisplay: Record<
   InvestigationStatus,

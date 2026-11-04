@@ -6,6 +6,7 @@ import { getModelUri, releaseModels, syncModel, type ModelSource } from "@/lib/m
 import { BUGLAB_THEME, setupMonaco } from "@/lib/monaco-setup";
 import type { EditorLanguage } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
+import { useRemountKey } from "./useRemountKey";
 
 // Monaco's runtime is served from our own origin (public/monaco/<version>/vs,
 // copied by scripts/monaco-assets.mjs). next.config.ts sets the path from the
@@ -32,6 +33,10 @@ export function MonacoEditor({ challengeId, path, content, language, openPaths }
   const monacoRef = useRef<Monaco | null>(null);
   const uri = getModelUri(challengeId, path);
   const sourceRef = useRef<ModelSource>({ uri, content, language });
+  // When Next.js hides this page and later shows it again, the library has
+  // disposed its editor but would never create another: a new key gives it a
+  // fresh one. Its model comes back from sourceRef in beforeMount.
+  const editorKey = useRemountKey();
 
   useEffect(() => {
     if (!MONACO_VS_PATH) return;
@@ -84,6 +89,7 @@ export function MonacoEditor({ challengeId, path, content, language, openPaths }
 
   return (
     <Editor
+      key={editorKey}
       path={uri}
       defaultValue={content}
       language={language}

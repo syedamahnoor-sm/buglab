@@ -3,13 +3,19 @@ export const SKIP_TARGETS = {
   diagnosis: "diagnosis",
 } as const;
 
-const links = [
+export interface SkipLink {
+  target: string;
+  label: string;
+}
+
+const workspaceLinks: SkipLink[] = [
   { target: SKIP_TARGETS.workspace, label: "Skip to workspace" },
   { target: SKIP_TARGETS.diagnosis, label: "Skip to diagnosis" },
 ];
 
-// Visually hidden until focused; the first Tab stops on the page.
-export function SkipLinks() {
+// Visually hidden until focused; the first Tab stops on the page. Defaults to
+// the workspace page's links.
+export function SkipLinks({ links = workspaceLinks }: { links?: readonly SkipLink[] }) {
   return (
     <>
       {links.map((link) => (

@@ -113,3 +113,20 @@ export function LockIcon(props: IconProps) {
     </BaseIcon>
   );
 }
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="8" cy="8" r="5.75" />
+      <path d="M8 5v3l2 1.5" />
+    </BaseIcon>
+  );
+}
+
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </BaseIcon>
+  );
+}
