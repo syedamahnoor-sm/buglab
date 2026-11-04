@@ -8,6 +8,7 @@ import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
 import type { DiagnosisValidationContext } from "@/lib/diagnosis/validate";
 import { getEvidenceId } from "@/lib/evidence";
+import { AUTHORED_CHALLENGES } from "@/server/content";
 import type { EvidenceRef } from "@/types/investigation";
 import type { WorkspaceScenario } from "@/types/workspace";
 
@@ -73,7 +74,7 @@ export function createDefaultRegistry(): DiagnosisRegistry {
   }
   const keyObservations = buildKeyObservations(provisionalAnswerKey.keyObservations, validation);
 
-  return new Map([
+  const registry = new Map<string, DiagnosisChallenge>([
     [
       challenge001.challenge.id,
       {
@@ -87,4 +88,24 @@ export function createDefaultRegistry(): DiagnosisRegistry {
       },
     ],
   ]);
+
+  // Every challenge authored with src/server/content, checked the same way.
+  for (const authored of AUTHORED_CHALLENGES) {
+    const challengeId = authored.scenario.challenge.id;
+    if (registry.has(challengeId)) throw new Error(`${challengeId} is registered twice`);
+    const context = validationContextFor(authored.scenario);
+    if (!context.rootCauseIds.has(authored.evaluation.correctRootCauseId)) {
+      throw new Error(`${challengeId} answer key does not match its root-cause options`);
+    }
+    registry.set(challengeId, {
+      challengeId,
+      validation: context,
+      answerKey: {
+        correctRootCauseId: authored.evaluation.correctRootCauseId,
+        resolutionSummary: authored.evaluation.resolutionSummary,
+        keyObservations: buildKeyObservations(authored.evaluation.keyObservations, context),
+      },
+    });
+  }
+  return registry;
 }

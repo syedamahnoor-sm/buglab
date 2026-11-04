@@ -4,6 +4,7 @@ import { createDiagnosisHandler } from "@/server/diagnosis/handler";
 import { parseAppOrigin } from "@/server/diagnosis/origin";
 import { restrictToPublished } from "@/server/diagnosis/published";
 import { createDefaultRegistry } from "@/server/diagnosis/registry";
+import { investigationHintsFor } from "@/server/content";
 
 const TEN_MINUTES = 10 * 60 * 1000;
 
@@ -24,4 +25,5 @@ export const POST = createDiagnosisHandler({
   trustedProxyHops: parseTrustedProxyHops(process.env.BUGLAB_TRUSTED_PROXY_HOPS),
   // Required in deployments; unset only for local development. See origin.ts.
   appOrigin: parseAppOrigin(process.env.BUGLAB_APP_ORIGIN),
+  investigationHints: investigationHintsFor,
 });

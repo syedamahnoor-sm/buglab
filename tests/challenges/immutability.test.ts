@@ -16,6 +16,8 @@ import { CORRECT_ID, WRONG_IDS, submission } from "../diagnosis/fixtures";
 import { draftOf } from "./helpers";
 
 const ID = "challenge-001";
+/** How many challenges a freshly built default registry holds. */
+const SHIPPED = createDefaultChallengeRegistry().diagnosisRegistry.size;
 const fresh = () => createDefaultChallengeRegistry();
 
 const loose = (value: unknown) => value as Record<string, unknown>;
@@ -65,7 +67,7 @@ describe("diagnosisRegistry cannot be changed", () => {
     for (const name of ["set", "delete", "clear"]) {
       assert.equal(typeof loose(view)[name], "undefined", name);
     }
-    assert.throws(() => asMap(view).set("challenge-002", {}), TypeError);
+    assert.throws(() => asMap(view).set("challenge-9999", {}), TypeError);
     assert.throws(() => asMap(view).delete(ID), TypeError);
     assert.throws(() => asMap(view).clear(), TypeError);
   });
@@ -74,10 +76,10 @@ describe("diagnosisRegistry cannot be changed", () => {
     const registry = fresh();
     const view = asMap(registry.diagnosisRegistry);
 
-    assert.throws(() => Map.prototype.set.call(view, "challenge-002", {}), TypeError);
+    assert.throws(() => Map.prototype.set.call(view, "challenge-9999", {}), TypeError);
     assert.throws(() => Map.prototype.delete.call(view, ID), TypeError);
     assert.throws(() => Map.prototype.clear.call(view), TypeError);
-    assert.equal(registry.diagnosisRegistry.size, 1);
+    assert.equal(registry.diagnosisRegistry.size, SHIPPED);
     assert.equal(registry.diagnosisRegistry.has(ID), true);
     assert.equal(grade(registry, CORRECT_ID), "correct");
   });
@@ -118,9 +120,9 @@ describe("diagnosisRegistry cannot be changed", () => {
     const registry = fresh();
     const entries = [...registry.diagnosisRegistry.entries()];
     entries.length = 0;
-    entries.push(["challenge-002", {} as never]);
+    entries.push(["challenge-9999", {} as never]);
     for (const challenge of registry.diagnosisRegistry.values()) assert.ok(Object.isFrozen(challenge));
-    assert.equal(registry.diagnosisRegistry.size, 1);
+    assert.equal(registry.diagnosisRegistry.size, SHIPPED);
   });
 
   test("getDiagnosis and diagnosisRegistry hand out the very same frozen object", () => {

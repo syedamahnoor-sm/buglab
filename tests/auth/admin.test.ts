@@ -31,11 +31,11 @@ describe("admin data access enforces its own permission", () => {
   test("an admin sees every challenge, drafts and archived included, with readiness", () => {
     const rows = listAdminChallenges(admin, entries);
     assert.deepEqual(rows.map((row) => `${row.id}:${row.status}:${row.ready}`), [
-      "challenge-001:published:true",
+      ...REGISTERED_CHALLENGES.map((entry) => `${entry.scenario.challenge.id}:published:true`),
       "challenge-080:draft:false",
       "challenge-081:archived:true",
     ]);
-    assert.ok(rows[1].failedChecks >= 1);
+    assert.ok(rows.find((row) => row.id === "challenge-080")!.failedChecks >= 1);
   });
 
   test("details carry public metadata and readiness, never evaluation data", () => {

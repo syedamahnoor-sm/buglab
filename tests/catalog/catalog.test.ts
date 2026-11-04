@@ -8,10 +8,12 @@ import { validateCatalogEntry } from "@/lib/catalog/validate";
 import { getCatalogInventory, getPublicScenario, listChallengeSummaries, listPublishedChallenges } from "@/lib/challenge-catalog";
 import { fixtureEntry } from "./fixtures";
 
+const shippedIds = REGISTERED_CHALLENGES.map((entry) => entry.scenario.challenge.id);
+
 describe("automatic discovery from the registration point", () => {
   test("a newly registered published challenge appears everywhere without UI changes", () => {
     const catalog = createCatalog([...REGISTERED_CHALLENGES, fixtureEntry("challenge-042", { listing: { publishedAt: "2026-11-05" } })]);
-    assert.deepEqual(catalog.listPublished().map((challenge) => challenge.id), ["challenge-001", "challenge-042"]);
+    assert.deepEqual(catalog.listPublished().map((challenge) => challenge.id), [...shippedIds, "challenge-042"]);
     assert.equal(catalog.getPublishedScenario("challenge-042")?.challenge.title, "Fixture challenge-042");
   });
 
@@ -21,12 +23,12 @@ describe("automatic discovery from the registration point", () => {
       fixtureEntry("challenge-050", { listing: { status: "draft", publishedAt: undefined } }),
       fixtureEntry("challenge-051", { listing: { status: "archived" } }),
     ]);
-    assert.deepEqual(catalog.listPublished().map((challenge) => challenge.id), ["challenge-001"]);
+    assert.deepEqual(catalog.listPublished().map((challenge) => challenge.id), shippedIds);
     assert.equal(catalog.getPublishedScenario("challenge-050"), null);
     assert.equal(catalog.getPublishedScenario("challenge-051"), null);
     assert.deepEqual(
       catalog.inventory().map((item) => `${item.id}:${item.status}`),
-      ["challenge-001:published", "challenge-050:draft", "challenge-051:archived"],
+      [...shippedIds.map((id) => `${id}:published`), "challenge-050:draft", "challenge-051:archived"],
     );
   });
 
@@ -60,8 +62,7 @@ describe("automatic discovery from the registration point", () => {
 });
 
 describe("the shipped catalog", () => {
-  test("Challenge 001 is registered, published, valid and featured, with real metadata", () => {
-    assert.equal(REGISTERED_CHALLENGES.length, 1);
+  test("Challenge 001 is registered first, published, valid and featured, with real metadata", () => {
     const [entry] = REGISTERED_CHALLENGES;
     assert.equal(entry.scenario, challenge001, "the scenario itself is unchanged");
     assert.deepEqual(validateCatalogEntry(entry), []);
@@ -70,12 +71,20 @@ describe("the shipped catalog", () => {
     assert.deepEqual(entry.listing.technologies, ["TypeScript", "Node.js", "Express"]);
   });
 
+  test("every shipped challenge is published and passes catalog validation", () => {
+    for (const entry of REGISTERED_CHALLENGES) {
+      assert.deepEqual(validateCatalogEntry(entry), [], entry.scenario.challenge.id);
+      assert.equal(entry.listing.status, "published", entry.scenario.challenge.id);
+    }
+  });
+
   test("the existing catalog API keeps its contract", () => {
-    assert.deepEqual(listChallengeSummaries(), [challenge001.challenge]);
+    assert.deepEqual(listChallengeSummaries(), REGISTERED_CHALLENGES.map((entry) => entry.scenario.challenge));
+    assert.deepEqual(listChallengeSummaries()[0], challenge001.challenge);
     assert.equal(getPublicScenario("challenge-001"), challenge001);
     assert.equal(getPublicScenario("CHALLENGE-001"), null);
-    assert.equal(listPublishedChallenges().length, 1);
-    assert.equal(getCatalogInventory()[0].status, "published");
+    assert.equal(listPublishedChallenges().length, REGISTERED_CHALLENGES.length);
+    assert.ok(getCatalogInventory().every((item) => item.status === "published"));
   });
 
   test("published metadata reveals nothing about the answer", () => {

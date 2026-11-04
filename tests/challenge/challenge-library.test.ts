@@ -18,14 +18,16 @@ import type { PublicChallenge } from "@/types/catalog";
 import { fixtureChallenge } from "../catalog/fixtures";
 
 const shipped = listPublishedChallenges();
+/** Challenge 001 on its own: the smallest real catalog, so section and count expectations stay fixed. */
+const solo = shipped.filter((challenge) => challenge.id === "challenge-001");
 const view = (challenges: PublicChallenge[], query: Partial<DiscoveryQuery> = {}) =>
   renderToStaticMarkup(createElement(ExplorerView, { challenges, query: { ...EMPTY_QUERY, ...query }, onQueryChange: () => {} }));
 const headings = (markup: string) => [...markup.matchAll(/<h2 id="[^"]+"[^>]*>([^<]+)</g)].map(([, text]) => text);
 const sectionHeadings = (markup: string) => headings(markup).filter((heading) => !["Categories", "Filters"].includes(heading));
 const source = (path: string) => readFileSync(new URL(`../../src/${path}`, import.meta.url), "utf8");
 
-describe("discovery sections with the shipped catalog (Challenge 001 only)", () => {
-  const markup = view(shipped);
+describe("discovery sections with a catalog of Challenge 001 alone", () => {
+  const markup = view(solo);
 
   test("Challenge 001 is featured, with the case-file card and an Open investigation link", () => {
     assert.match(markup, /<section aria-labelledby="featured-heading"/);
@@ -43,8 +45,8 @@ describe("discovery sections with the shipped catalog (Challenge 001 only)", () 
   test("categories and counts come from the catalog, with no empty categories", () => {
     const sidebar = markup.slice(markup.indexOf('aria-label="Filters"'), markup.indexOf("</aside>"));
     assert.match(sidebar, /aria-pressed="true"[^>]*>[\s\S]*?All challenges[\s\S]*?>1</);
-    assert.match(sidebar, />Authentication<[\s\S]*?>1</);
-    assert.doesNotMatch(sidebar, /APIs|Databases|Frontend|Performance|Infrastructure/);
+    assert.match(sidebar, />Authentication &amp; Authorization<[\s\S]*?>1</);
+    assert.doesNotMatch(sidebar, /APIs|Databases|Frontend|Performance|Security/);
     assert.ok(markup.includes(">1 challenge available<"));
   });
 
@@ -53,6 +55,7 @@ describe("discovery sections with the shipped catalog (Challenge 001 only)", () 
   });
 
   test("nothing from the answer key or the scenario's code reaches the page", () => {
+    const markup = view(shipped);
     for (const field of ["correctRootCauseId", "resolutionSummary", "keyObservations"]) assert.ok(!markup.includes(field), field);
     assert.ok(!markup.includes(provisionalAnswerKey.resolutionSummary));
     for (const option of challenge001.rootCauseOptions) assert.ok(!markup.includes(option.label), option.id);
@@ -62,7 +65,7 @@ describe("discovery sections with the shipped catalog (Challenge 001 only)", () 
 
 describe("a larger catalog", () => {
   const catalog = [
-    ...shipped,
+    ...solo,
     fixtureChallenge("challenge-002", { difficulty: "beginner" }),
     fixtureChallenge("challenge-003", { difficulty: "advanced", category: "frontend", technologies: ["React"] }),
   ];

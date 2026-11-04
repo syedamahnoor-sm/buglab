@@ -25,8 +25,9 @@ describe("compatibility with DiagnosisRegistry", () => {
   test("diagnosisRegistry is a ReadonlyMap<string, DiagnosisChallenge> and answers has() and get()", () => {
     const map: DiagnosisRegistry = registry.diagnosisRegistry;
 
-    assert.equal(map.size, 1);
-    assert.deepEqual([...map.keys()], [CHALLENGE_ID]);
+    assert.equal(map.size, createDefaultRegistry().size);
+    assert.deepEqual([...map.keys()], [...createDefaultRegistry().keys()]);
+    assert.equal([...map.keys()][0], CHALLENGE_ID);
     assert.equal(map.has(CHALLENGE_ID), true);
     assert.equal(map.get(CHALLENGE_ID), registry.getDiagnosis(CHALLENGE_ID));
   });
@@ -34,7 +35,7 @@ describe("compatibility with DiagnosisRegistry", () => {
   test("it is deeply equal to the registry the diagnosis route builds today", () => {
     // The loader's registry holds read-only views and the existing one real Maps and Sets, so compare the data.
     const loaded = toPlain(registry.diagnosisRegistry) as { __map: unknown[] };
-    assert.equal(loaded.__map.length, 1);
+    assert.equal(loaded.__map.length, createDefaultRegistry().size);
     assert.deepStrictEqual(loaded, toPlain(createDefaultRegistry()));
   });
 

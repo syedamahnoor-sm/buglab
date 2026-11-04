@@ -113,7 +113,8 @@ describe("createAppServices: defaults", () => {
 
     assert.deepEqual(Object.keys(services).sort(), ["appOrigin", "challengeVersion", "challenges", "diagnosis", "ipSubmissions", "service", "store", "trustedProxyHops"]);
     assert.ok(services.store instanceof MemoryStore);
-    assert.deepEqual(services.challenges.list().map((challenge) => challenge.id), [CHALLENGE_ID]);
+    assert.deepEqual(services.challenges.list().map((challenge) => challenge.id), createDefaultChallengeRegistry().list().map((challenge) => challenge.id));
+    assert.equal(services.challenges.list()[0].id, CHALLENGE_ID);
     assert.equal(typeof services.diagnosis, "function");
     assert.equal(services.trustedProxyHops, 0);
   });

@@ -40,7 +40,7 @@ describe("/challenges/[challengeId]: known challenges", () => {
 
   test("prerenders exactly the catalog's challenges, and requires the route to stay static", () => {
     assert.deepEqual(generateStaticParams(), listChallengeSummaries().map(({ id }) => ({ challengeId: id })));
-    assert.deepEqual(generateStaticParams(), [{ challengeId: "challenge-001" }]);
+    assert.deepEqual(generateStaticParams()[0], { challengeId: "challenge-001" });
     assert.equal(ensureStatic, "navigation");
   });
 

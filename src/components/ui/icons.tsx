@@ -203,12 +203,11 @@ export function GaugeIcon(props: IconProps) {
   );
 }
 
-export function ServerIcon(props: IconProps) {
+export function ShieldIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>
-      <rect x="2" y="2.5" width="12" height="4.5" rx="1" />
-      <rect x="2" y="9" width="12" height="4.5" rx="1" />
-      <path d="M4.5 4.75h.01M4.5 11.25h.01" />
+      <path d="M8 1.75 13 3.5v4.25c0 3-2.1 5.4-5 6.5-2.9-1.1-5-3.5-5-6.5V3.5z" />
+      <path d="m5.75 8 1.6 1.6 2.9-3.1" />
     </BaseIcon>
   );
 }
