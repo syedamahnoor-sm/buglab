@@ -34,9 +34,11 @@ import { challenge019 } from "@/data/challenge-019";
 import { challenge020 } from "@/data/challenge-020";
 import { challenge021 } from "@/data/challenge-021";
 import { challenge022 } from "@/data/challenge-022";
+import { challenge023 } from "@/data/challenge-023";
 import { challenge024 } from "@/data/challenge-024";
 import { challenge025 } from "@/data/challenge-025";
 import { challenge026 } from "@/data/challenge-026";
+import { challenge027 } from "@/data/challenge-027";
 import { challenge028 } from "@/data/challenge-028";
 import { challenge029 } from "@/data/challenge-029";
 import { challenge030 } from "@/data/challenge-030";
@@ -65,9 +67,11 @@ export const REGISTERED_CHALLENGES: readonly CatalogEntry[] = [
   challenge020,
   challenge021,
   challenge022,
+  challenge023,
   challenge024,
   challenge025,
   challenge026,
+  challenge027,
   challenge028,
   challenge029,
   challenge030,

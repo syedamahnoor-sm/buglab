@@ -158,6 +158,14 @@ const PINS: Readonly<Record<string, Pin>> = {
     revision: "1",
     evaluationDigest: "1552dea2bdd02c3dfe0c3cad17f29fbda5ea1f8fc81f21385976e1f600819859",
   },
+  "challenge-023": {
+    revision: "1",
+    evaluationDigest: "7f979ec44c14fec921d0eaf322b4ee3c8e8636e07fbc3259d379d513c08e9c62",
+  },
+  "challenge-027": {
+    revision: "1",
+    evaluationDigest: "323cbdf514c9c6e280181f1ae957c5875c95ea8537a0be4bb4a5aec4b1963eef",
+  },
 };
 
 const digestOf = (definition: ChallengeDefinition) =>
