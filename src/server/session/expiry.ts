@@ -61,7 +61,7 @@ export function createExpiryPolicy(overrides: Partial<ExpiryPolicy> = {}): Expir
   return Object.freeze(policy);
 }
 
-/** The timestamps the rules need. A SessionRecord satisfies this. */
+/** The timestamps the rules need. A LearnerRecord satisfies this. */
 export interface SessionTimes {
   readonly lastTouchedAt: number;
   readonly idleExpiresAt: number;
