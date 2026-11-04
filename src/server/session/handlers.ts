@@ -20,8 +20,9 @@
  * on a read only when it refreshed the idle expiry.
  */
 import "server-only";
+import { shouldSetSecureCookie } from "@/server/diagnosis/origin";
 import { readLearnerCookie, serializeLearnerCookie, type IssuedCookie } from "./cookie";
-import { checkSmallJsonWrite } from "./request-guards";
+import { checkSmallJsonWrite, isSameOrigin } from "./request-guards";
 import type { LearnerSessionService, Rejection, RejectionCode } from "./service";
 
 interface ChallengeContext {
@@ -39,38 +40,55 @@ export const REJECTIONS: Record<RejectionCode, { status: number; message: string
   "submission-id-conflict": { status: 409, message: "That submission id was already used for a different answer." },
 };
 
-function respond(status: number, body: unknown, request: Request, cookie?: IssuedCookie): Response {
-  const headers = new Headers({
-    "Cache-Control": "no-store",
-    Vary: "Cookie",
-    "X-Content-Type-Options": "nosniff",
-  });
-  if (cookie) headers.append("Set-Cookie", serializeLearnerCookie(cookie, new URL(request.url).protocol === "https:"));
-  return Response.json(body, { status, headers });
-}
+/**
+ * The response helpers, bound to the application origin (the parsed BUGLAB_APP_ORIGIN, or null when it
+ * is not configured). The origin decides two things: which Origin a write is accepted from, and whether
+ * the learner cookie is `Secure`. Both come from the configured origin, never from a header the client
+ * sends: with it set, a TLS-terminating proxy cannot strip `Secure` and a client cannot add it.
+ */
+function responders(appOrigin: string | null) {
+  function respond(status: number, body: unknown, request: Request, cookie?: IssuedCookie): Response {
+    const headers = new Headers({
+      "Cache-Control": "no-store",
+      Vary: "Cookie",
+      "X-Content-Type-Options": "nosniff",
+    });
+    if (cookie) headers.append("Set-Cookie", serializeLearnerCookie(cookie, shouldSetSecureCookie(request, appOrigin)));
+    return Response.json(body, { status, headers });
+  }
 
-function error(status: number, code: ErrorCode, message: string, request: Request): Response {
-  return respond(status, { status: "error", code, message }, request);
-}
+  function error(status: number, code: ErrorCode, message: string, request: Request): Response {
+    return respond(status, { status: "error", code, message }, request);
+  }
 
-function reject(rejection: Rejection, request: Request): Response {
-  const { status, message } = REJECTIONS[rejection.code];
-  return error(status, rejection.code, message, request);
-}
+  function reject(rejection: Rejection, request: Request): Response {
+    const { status, message } = REJECTIONS[rejection.code];
+    return error(status, rejection.code, message, request);
+  }
 
-/** Turns a guard refusal into this module's error response, or null when the request may proceed. */
-async function guardWrite(request: Request): Promise<Response | null> {
-  const refused = await checkSmallJsonWrite(request);
-  return refused ? error(refused.status, refused.code, refused.message, request) : null;
+  /** Turns a guard refusal into this module's error response, or null when the request may proceed. */
+  async function guardWrite(request: Request): Promise<Response | null> {
+    const refused = await checkSmallJsonWrite(request, (candidate) => isSameOrigin(candidate, appOrigin));
+    return refused ? error(refused.status, refused.code, refused.message, request) : null;
+  }
+
+  function internalError(request: Request): Response {
+    return error(500, "internal", "Something went wrong. Please try again.", request);
+  }
+
+  return { respond, reject, guardWrite, internalError };
 }
 
 const cookieOf = (request: Request) => readLearnerCookie(request.headers.get("cookie"));
 
-function internalError(request: Request): Response {
-  return error(500, "internal", "Something went wrong. Please try again.", request);
+/** `appOrigin` is the parsed BUGLAB_APP_ORIGIN. Left out, it is null: the request's own URL decides, which fails closed behind a rewriting proxy. */
+interface HandlerDeps {
+  service: LearnerSessionService;
+  appOrigin?: string | null;
 }
 
-export function createLearnerHandlers({ service }: { service: LearnerSessionService }) {
+export function createLearnerHandlers({ service, appOrigin = null }: HandlerDeps) {
+  const { respond, guardWrite, internalError } = responders(appOrigin);
   return {
     async GET(request: Request): Promise<Response> {
       try {
@@ -95,7 +113,8 @@ export function createLearnerHandlers({ service }: { service: LearnerSessionServ
   };
 }
 
-export function createChallengeSessionHandlers({ service }: { service: LearnerSessionService }) {
+export function createChallengeSessionHandlers({ service, appOrigin = null }: HandlerDeps) {
+  const { respond, reject, guardWrite, internalError } = responders(appOrigin);
   return {
     async GET(request: Request, context: ChallengeContext): Promise<Response> {
       try {
@@ -129,7 +148,8 @@ export function createChallengeSessionHandlers({ service }: { service: LearnerSe
   };
 }
 
-export function createAttemptHistoryHandler({ service }: { service: LearnerSessionService }) {
+export function createAttemptHistoryHandler({ service, appOrigin = null }: HandlerDeps) {
+  const { respond, reject, internalError } = responders(appOrigin);
   return {
     async GET(request: Request, context: ChallengeContext): Promise<Response> {
       try {

@@ -74,6 +74,19 @@ async function readyLearner(services: AppServices) {
 const wrong = (index: number) => ({ body: submission({ rootCauseId: WRONG_IDS[index] }) });
 const right = () => ({ body: submission({ rootCauseId: CORRECT_ID }) });
 
+/** Runs `run` with BUGLAB_APP_ORIGIN set (or removed), and puts the environment back. */
+function withAppOrigin<T>(value: string | undefined, run: () => T): T {
+  const before = process.env.BUGLAB_APP_ORIGIN;
+  if (value === undefined) delete process.env.BUGLAB_APP_ORIGIN;
+  else process.env.BUGLAB_APP_ORIGIN = value;
+  try {
+    return run();
+  } finally {
+    if (before === undefined) delete process.env.BUGLAB_APP_ORIGIN;
+    else process.env.BUGLAB_APP_ORIGIN = before;
+  }
+}
+
 /** Runs `run` with BUGLAB_TRUSTED_PROXY_HOPS set (or removed), and puts the environment back. */
 async function withProxyHops<T>(value: string | undefined, run: () => Promise<T> | T): Promise<T> {
   const before = process.env.BUGLAB_TRUSTED_PROXY_HOPS;
@@ -98,7 +111,7 @@ describe("createAppServices: defaults", () => {
   test("builds the default challenge registry, an in-memory store, the service, a limiter and the handler", async () => {
     const services = await withProxyHops(undefined, () => createAppServices());
 
-    assert.deepEqual(Object.keys(services).sort(), ["challengeVersion", "challenges", "diagnosis", "ipSubmissions", "service", "store", "trustedProxyHops"]);
+    assert.deepEqual(Object.keys(services).sort(), ["appOrigin", "challengeVersion", "challenges", "diagnosis", "ipSubmissions", "service", "store", "trustedProxyHops"]);
     assert.ok(services.store instanceof MemoryStore);
     assert.deepEqual(services.challenges.list().map((challenge) => challenge.id), [CHALLENGE_ID]);
     assert.equal(typeof services.diagnosis, "function");
@@ -136,6 +149,52 @@ describe("createAppServices: defaults", () => {
     ] as const) {
       assert.equal(await withProxyHops(value, () => createAppServices().trustedProxyHops), expected, String(value));
     }
+  });
+
+  test("the application origin comes from BUGLAB_APP_ORIGIN, parsed when the services are built, and a malformed value throws", () => {
+    for (const [value, expected] of [
+      [undefined, null],
+      ["", null],
+      ["   ", null],
+      ["https://buglab.example", "https://buglab.example"],
+      [" HTTPS://BugLab.Example:443 ", "https://buglab.example"],
+      ["http://localhost:3000", "http://localhost:3000"],
+    ] as const) {
+      assert.equal(withAppOrigin(value, () => createAppServices().appOrigin), expected, String(value));
+    }
+    for (const bad of ["buglab.example", "https://buglab.example/", "https://buglab.example/app", "https://u@buglab.example", "ftp://x", "null", "*"]) {
+      assert.throws(() => withAppOrigin(bad, () => createAppServices()), /BUGLAB_APP_ORIGIN must be an origin/, bad);
+    }
+  });
+
+  test("an injected appOrigin wins over the variable, and null means not configured", () => {
+    assert.equal(withAppOrigin("https://from-env.example", () => createAppServices({ appOrigin: "https://injected.example" }).appOrigin), "https://injected.example");
+    assert.equal(withAppOrigin("https://from-env.example", () => createAppServices({ appOrigin: null }).appOrigin), null);
+    // An injected value is not re-read from the environment, so a malformed variable does not matter.
+    assert.equal(withAppOrigin("not an origin", () => createAppServices({ appOrigin: null }).appOrigin), null);
+  });
+
+  test("the diagnosis handler uses it: the real origin is accepted behind a proxy, and the cookie is Secure by configuration", async () => {
+    const APP = "https://buglab.example";
+    const proxied = createAppServices({ appOrigin: APP });
+    const cookie = await readyLearner(proxied);
+
+    // The request URL is the proxy's upstream (http://localhost:3000); the browser's real origin is https://buglab.example.
+    const accepted = await postDiagnosis(proxied, { cookie, headers: { origin: APP, "sec-fetch-site": "same-origin" } });
+    assert.equal(accepted.status, 200);
+    assert.match(accepted.response.headers.getSetCookie()[0], /; HttpOnly; SameSite=Strict; Secure$/);
+
+    // The same services refuse the upstream URL's own origin, and a request that proves nothing.
+    assert.equal((await postDiagnosis(proxied, { cookie })).status, 403, "the upstream origin is not the app's origin");
+    assert.equal((await postDiagnosis(proxied, { cookie, headers: { origin: "" } })).status, 403, "a headerless write is refused");
+
+    // Nothing configured: the same proxied request is refused (fail closed), and a plain http cookie is not Secure.
+    const unconfigured = createAppServices({ appOrigin: null });
+    const unconfiguredCookie = await readyLearner(unconfigured);
+    assert.equal((await postDiagnosis(unconfigured, { cookie: unconfiguredCookie, headers: { origin: APP } })).status, 403);
+    const plain = await postDiagnosis(unconfigured, { cookie: unconfiguredCookie });
+    assert.equal(plain.status, 200);
+    assert.doesNotMatch(plain.response.headers.getSetCookie()[0], /Secure/);
   });
 
   test("the result is frozen: nothing can be swapped out after the services are built", () => {

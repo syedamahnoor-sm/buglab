@@ -390,12 +390,111 @@ describe("diagnosis submission handler: request checks", () => {
     assert.equal((await read(await permissive(request({ cookie, headers: { "sec-purpose": "prefetch" } }), context(CHALLENGE_ID)))).status, 403);
   });
 
-  test("by default the strict origin policy applies: a missing Origin is not enough, as it is for the live endpoint", async () => {
+  test("by default the strict origin policy applies: a missing Origin is not enough, unlike the live endpoint", async () => {
     const lab = setup();
     const noOrigin = request({ cookie: await ready(lab) });
     noOrigin.headers.delete("origin");
 
     assert.equal((await read(await lab.handler(noOrigin, context(CHALLENGE_ID)))).status, 403);
+  });
+
+  describe("with a configured application origin (BUGLAB_APP_ORIGIN)", () => {
+    const APP = "https://buglab.example";
+    /** The request as the app sees it behind a TLS-terminating proxy: the upstream URL and Host, the browser's real Origin. */
+    const upstream = { url: "http://127.0.0.1:3000" };
+    const sendTo = async (handler: ReturnType<typeof handlerWith>, options: Send) =>
+      read(await handler(request({ ...upstream, ...options }), context(CHALLENGE_ID)));
+
+    test("the real origin is accepted even though the request URL is the proxy's upstream", async () => {
+      const lab = setup();
+      const handler = handlerWith(lab, { appOrigin: APP });
+      const cookie = await ready(lab);
+
+      // Three sends at most: each default submission is a new incorrect attempt, and the window allows three.
+      for (const origin of [APP, "https://BUGLAB.EXAMPLE"]) {
+        const { status } = await sendTo(handler, { cookie, headers: { origin, "sec-fetch-site": "same-origin" } });
+        assert.equal(status, 200, origin);
+      }
+      assert.equal((await sendTo(handler, { cookie, headers: { origin: "https://buglab.example:443" } })).status, 200, "Sec-Fetch-Site may be absent when a valid Origin is present");
+    });
+
+    test("anything else is 403 and records nothing: the upstream's own origin, other origins and schemes, credentials, an invalid Origin with proof", async () => {
+      const lab = setup();
+      const { calls, service } = spy(lab.service);
+      const handler = handlerWith(lab, { appOrigin: APP, service });
+      const cookie = await ready(lab);
+
+      const refusals: Array<Record<string, string>> = [
+        { origin: "http://127.0.0.1:3000" }, // the request's own URL is not the app's origin
+        { origin: "https://evil.example", host: "evil.example", "x-forwarded-host": "evil.example" },
+        { origin: "http://buglab.example" },
+        { origin: "https://buglab.example:8443" },
+        { origin: "https://evil.example@buglab.example" },
+        { origin: "https://@buglab.example" }, // empty credentials normalise away in the shared helper
+        { origin: "https://:@buglab.example", "sec-fetch-site": "same-origin" },
+        { origin: "null", "sec-fetch-site": "same-origin" }, // an invalid Origin is never rescued by Fetch Metadata
+        { origin: "garbage", "sec-fetch-site": "same-origin" },
+        { origin: "https://buglab.example/", "sec-fetch-site": "same-origin" },
+        { origin: APP, "sec-fetch-site": "cross-site" },
+        { origin: APP, "sec-fetch-site": "same-site" },
+      ];
+      for (const headers of refusals) {
+        const { status, json, response } = await sendTo(handler, { cookie, headers });
+        assert.equal(status, 403, JSON.stringify(headers));
+        assert.equal(json.code, "forbidden");
+        assert.deepEqual(response.headers.getSetCookie(), [], "a refusal sets no cookie");
+      }
+      assert.equal(calls.length, 0, "the service was never reached");
+    });
+
+    test("a headerless write is still refused: only Sec-Fetch-Site: same-origin stands in for a missing Origin", async () => {
+      const lab = setup();
+      const handler = handlerWith(lab, { appOrigin: APP });
+      const cookie = await ready(lab);
+      const headerless = (extra: Record<string, string> = {}) => {
+        const req = request({ ...upstream, cookie, headers: extra });
+        req.headers.delete("origin");
+        return req;
+      };
+
+      assert.equal((await read(await handler(headerless(), context(CHALLENGE_ID)))).status, 403, "no proof at all");
+      for (const site of ["same-site", "cross-site", "none", ""]) {
+        assert.equal((await read(await handler(headerless({ "sec-fetch-site": site }), context(CHALLENGE_ID)))).status, 403, site);
+      }
+      assert.equal((await read(await handler(headerless({ "sec-fetch-site": "same-origin" }), context(CHALLENGE_ID)))).status, 200);
+    });
+
+    test("Secure follows the configured origin, not the request URL and not X-Forwarded-Proto", async () => {
+      const lab = setup();
+      const https = handlerWith(lab, { appOrigin: APP });
+      const http = handlerWith(lab, { appOrigin: "http://localhost:3000" });
+      const cookie = await ready(lab);
+
+      // https app origin: Secure, although the request URL is http and the proxy says http.
+      for (const forwarded of [undefined, "http"]) {
+        const headers: Record<string, string> = { origin: APP };
+        if (forwarded) headers["x-forwarded-proto"] = forwarded;
+        const { response } = await sendTo(https, { cookie, headers });
+        assert.match(response.headers.getSetCookie()[0], /; HttpOnly; SameSite=Strict; Secure$/, String(forwarded));
+      }
+      // http app origin: never Secure, even if the request URL is https and the client claims https.
+      const { response } = await read(
+        await http(request({ url: "https://localhost:3000", cookie, headers: { origin: "http://localhost:3000", "x-forwarded-proto": "https" } }), context(CHALLENGE_ID)),
+      );
+      assert.equal(response.status, 200);
+      assert.doesNotMatch(response.headers.getSetCookie()[0], /Secure/);
+      assert.match(response.headers.getSetCookie()[0], /Path=\/api; Max-Age=\d+; HttpOnly; SameSite=Strict$/, "the other cookie attributes are unchanged");
+    });
+
+    test("with nothing configured the cookie's Secure follows the request URL, as it did before", async () => {
+      const lab = setup();
+      const cookie = await ready(lab);
+      const http = await send(lab, { cookie });
+      const https = await send(lab, { cookie, url: "https://buglab.example" });
+
+      assert.doesNotMatch(http.response.headers.getSetCookie()[0], /Secure/);
+      assert.match(https.response.headers.getSetCookie()[0], /; Secure$/);
+    });
   });
 
   test("an unknown challenge is 404, and is decided before the body is read", async () => {

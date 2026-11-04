@@ -46,9 +46,11 @@
  * Field validation happens inside the service, after the learner and session are checked, so a
  * request with no learner and a bad body is 401 where the live endpoint answers 400.
  *
- * ORIGIN. The same-origin check is the strict policy of request-guards.ts, or the function passed
- * as `isSameOrigin`. It is not the live endpoint's, and it is not Syeda's unpublished change; read
- * the compatibility requirement at the top of request-guards.ts before mounting this.
+ * ORIGIN. The same-origin check is the strict session-write policy of request-guards.ts, applied to
+ * `appOrigin` (the parsed BUGLAB_APP_ORIGIN), or the function passed as `isSameOrigin`. It builds on
+ * the shared helper in src/server/diagnosis/origin.ts but is deliberately stricter than the live
+ * endpoint's own use of it: a request with no Origin and no Sec-Fetch-Site is refused here. The live
+ * endpoint's policy is unchanged. The learner cookie's `Secure` attribute follows `appOrigin` too.
  *
  * Every response is `no-store`, `nosniff` and `Vary: Cookie`. The learner cookie is set only on a
  * result the service produced for a verified learner, and only if the cookie it returned is well
@@ -57,6 +59,7 @@
 import "server-only";
 import type { FixedWindowLimiter } from "@/server/diagnosis/attempt-limiter";
 import { getTrustedClientIp } from "@/server/diagnosis/client-ip";
+import { shouldSetSecureCookie } from "@/server/diagnosis/origin";
 import type { DiagnosisRegistry } from "@/server/diagnosis/registry";
 import type { DiagnosisResponse } from "@/types/diagnosis";
 import { readLearnerCookie, serializeLearnerCookie, type IssuedCookie } from "./cookie";
@@ -84,6 +87,13 @@ export interface DiagnosisSubmissionHandlerDeps {
   ipSubmissions: IpSubmissionLimiter;
   /** How many trusted proxies sit in front of the app. 0 means no client IP is trusted, so no IP limit applies. */
   trustedProxyHops: number;
+  /**
+   * The application's own origin: the parsed BUGLAB_APP_ORIGIN (parseAppOrigin), or null when it is not
+   * configured. It is the only origin a write is accepted from, and it decides whether the learner cookie
+   * is `Secure`. Left out it is null: the request's own URL decides, which fails closed behind a proxy
+   * that rewrites the scheme or host. A deployment must set it.
+   */
+  appOrigin?: string | null;
   /** Replaces the strict same-origin policy of request-guards.ts. Leave it unset unless the policy is being decided. */
   isSameOrigin?: (request: Request) => boolean;
 }
@@ -104,35 +114,40 @@ function usable(cookie: IssuedCookie | undefined): cookie is IssuedCookie {
   );
 }
 
-function respond(
-  status: number,
-  body: DiagnosisResponse | ErrorBody,
-  request: Request,
-  extra: { cookie?: IssuedCookie; retryAfterSeconds?: number } = {},
-): Response {
-  const headers = new Headers({
-    "Cache-Control": "no-store",
-    Vary: "Cookie",
-    "X-Content-Type-Options": "nosniff",
-  });
-  if (extra.retryAfterSeconds !== undefined) headers.set("Retry-After", String(extra.retryAfterSeconds));
-  if (usable(extra.cookie)) {
-    headers.append("Set-Cookie", serializeLearnerCookie(extra.cookie, new URL(request.url).protocol === "https:"));
+/** The response helpers, bound to the application origin, which decides the cookie's `Secure` attribute. */
+function responders(appOrigin: string | null) {
+  function respond(
+    status: number,
+    body: DiagnosisResponse | ErrorBody,
+    request: Request,
+    extra: { cookie?: IssuedCookie; retryAfterSeconds?: number } = {},
+  ): Response {
+    const headers = new Headers({
+      "Cache-Control": "no-store",
+      Vary: "Cookie",
+      "X-Content-Type-Options": "nosniff",
+    });
+    if (extra.retryAfterSeconds !== undefined) headers.set("Retry-After", String(extra.retryAfterSeconds));
+    if (usable(extra.cookie)) {
+      headers.append("Set-Cookie", serializeLearnerCookie(extra.cookie, shouldSetSecureCookie(request, appOrigin)));
+    }
+    return Response.json(body, { status, headers });
   }
-  return Response.json(body, { status, headers });
-}
 
-function fail(status: number, code: string, message: string, request: Request): Response {
-  return respond(status, { status: "error", code, message }, request);
-}
+  function fail(status: number, code: string, message: string, request: Request): Response {
+    return respond(status, { status: "error", code, message }, request);
+  }
 
-function invalidBody(message: string, request: Request): Response {
-  return respond(400, { status: "invalid", errors: [{ field: "body", message }] }, request);
-}
+  function invalidBody(message: string, request: Request): Response {
+    return respond(400, { status: "invalid", errors: [{ field: "body", message }] }, request);
+  }
 
-function reject(rejection: Rejection, request: Request): Response {
-  const { status, message } = REJECTIONS[rejection.code];
-  return fail(status, rejection.code, message, request);
+  function reject(rejection: Rejection, request: Request): Response {
+    const { status, message } = REJECTIONS[rejection.code];
+    return fail(status, rejection.code, message, request);
+  }
+
+  return { respond, fail, invalidBody, reject };
 }
 
 /** The key as the service stores it, undefined when the header is absent, null when it is present but not one UUID. */
@@ -143,7 +158,9 @@ function idempotencyKeyOf(request: Request): string | undefined | null {
 }
 
 export function createDiagnosisSubmissionHandler(deps: DiagnosisSubmissionHandlerDeps) {
-  const sameOrigin = deps.isSameOrigin ?? strictSameOrigin;
+  const appOrigin = deps.appOrigin ?? null;
+  const { respond, fail, invalidBody, reject } = responders(appOrigin);
+  const sameOrigin = deps.isSameOrigin ?? ((request: Request) => strictSameOrigin(request, appOrigin));
 
   return async function POST(request: Request, context: RouteContext): Promise<Response> {
     try {

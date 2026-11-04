@@ -161,10 +161,24 @@ describe("diagnosis submission handler and composition: source guards", () => {
     assert.doesNotMatch(handlerSource, /\.completed|completedAt|learnerId|sessionId|tokenHash/);
   });
 
-  test("the handler imports nothing of the live diagnosis endpoint except the pure client-IP reader, the registry type and the limiter type", () => {
+  test("the handler imports nothing of the live diagnosis endpoint except the pure client-IP reader, the shared cookie rule, the registry type and the limiter type", () => {
     const imports = [...handlerSource.matchAll(/from "([^"]+)"/g)].map((match) => match[1]).filter((path) => path.startsWith("@/server/diagnosis"));
-    assert.deepEqual(imports.sort(), ["@/server/diagnosis/attempt-limiter", "@/server/diagnosis/client-ip", "@/server/diagnosis/registry"]);
+    assert.deepEqual(imports.sort(), [
+      "@/server/diagnosis/attempt-limiter",
+      "@/server/diagnosis/client-ip",
+      "@/server/diagnosis/origin",
+      "@/server/diagnosis/registry",
+    ]);
     assert.doesNotMatch(handlerSource, /server\/diagnosis\/handler/);
+    // From the shared Origin module the handler takes only the cookie rule; the origin comparison goes through request-guards.ts.
+    assert.match(handlerSource, /import \{ shouldSetSecureCookie \} from "@\/server\/diagnosis\/origin"/);
+  });
+
+  test("Secure comes from the configured application origin only: both handler files use the shared rule and never read the request URL's scheme", () => {
+    for (const [file, source] of [["handlers.ts", handlersSource], ["diagnosis-handler.ts", handlerSource]]) {
+      assert.match(source, /shouldSetSecureCookie\(request, appOrigin\)/, file);
+      assert.doesNotMatch(source, /protocol\s*===?\s*["']https:["']|x-forwarded-proto/i, file);
+    }
   });
 
   test("the same-origin policy is written once, in request-guards.ts: neither handler file compares origins itself", () => {
@@ -175,22 +189,33 @@ describe("diagnosis submission handler and composition: source guards", () => {
     }
   });
 
-  test("the guards keep the strict policy: whole-origin comparison, and a missing Origin needs Fetch Metadata", () => {
-    assert.match(guardsSource, /claimed\.origin === new URL\(request\.url\)\.origin/);
-    assert.match(guardsSource, /claimed\.origin !== "null"/);
-    assert.match(guardsSource, /request\.headers\.get\("sec-fetch-site"\) === "same-origin"/);
-    assert.doesNotMatch(guardsSource, /\.host\b|headers\.get\("host"\)/, "the Host header and the bare host are never compared");
+  test("the guards keep the strict session-write policy on top of the shared helper", () => {
+    // The comparison is the shared helper's, not a copy of it, and it is given an origin that is never the Host header.
+    assert.match(guardsSource, /import \{ isSameOriginRequest \} from "@\/server\/diagnosis\/origin"/);
+    assert.match(guardsSource, /isSameOriginRequest\(request, appOrigin \?\? new URL\(request\.url\)\.origin\)/);
+    assert.doesNotMatch(guardsSource, /new URL\(origin\)|claimed\b|normalizeOrigin|parseAppOrigin/, "the guards do not parse or compare origins themselves");
+    assert.doesNotMatch(guardsSource, /\.host\b|headers\.get\("host"\)|x-forwarded/i, "the Host and forwarded headers are never consulted");
+    // A headerless write is never allowed: with no Origin only the browser's own Fetch Metadata passes.
+    assert.match(guardsSource, /if \(!origin\) return request\.headers\.get\("sec-fetch-site"\) === "same-origin"/);
+    // Any `@` is refused, which closes the empty-credentials form the shared helper normalizes away.
+    assert.match(guardsSource, /origin\.includes\("@"\)/);
   });
 
-  test("the origin compatibility requirement is written down where the policy lives and where the handler is built", () => {
+  test("the session-write origin policy is written down where it lives and where the handler is built, and its old caveats are gone", () => {
     const guards = read(join(SESSION_DIR, "request-guards.ts"));
     const handler = read(join(SESSION_DIR, "diagnosis-handler.ts"));
 
-    assert.match(guards, /COMPATIBILITY REQUIREMENT BEFORE ANYTHING IS MOUNTED/);
-    assert.match(guards, /not on any branch/);
-    assert.match(guards, /ONE policy/);
-    assert.match(handler, /unpublished change/);
-    assert.match(handler, /compatibility requirement at the top of request-guards\.ts/);
+    assert.match(guards, /THE ORIGIN POLICY/);
+    assert.match(guards, /src\/server\/diagnosis\/origin\.ts/);
+    assert.match(guards, /BUGLAB_APP_ORIGIN/);
+    assert.match(guards, /headerless write is never allowed/);
+    assert.match(guards, /fails closed/);
+    assert.match(handler, /strict session-write policy of request-guards\.ts/);
+    assert.match(handler, /BUGLAB_APP_ORIGIN/);
+    // The caveats about a fix that was not yet visible no longer apply and must not linger.
+    for (const source of [guards, handler]) {
+      assert.doesNotMatch(source, /COMPATIBILITY REQUIREMENT BEFORE ANYTHING IS MOUNTED|unpublished change|not on any branch/);
+    }
   });
 
   test("nothing is mounted: the only route under src/app/api is the live diagnosis route", () => {
@@ -236,7 +261,9 @@ describe("diagnosis submission handler and composition: source guards", () => {
 
     assert.equal((source.match(/globalThis/g) ?? []).length, 2, "one read of the shared state and one type cast");
     assert.match(source, /export const SHARED_STATE_KEY = "__buglabSharedServerState"/);
-    assert.doesNotMatch(source, /process\.env\.(?!BUGLAB_TRUSTED_PROXY_HOPS\b)/);
+    // The only two variables it reads, once each: the trusted proxy hops and the application origin.
+    assert.doesNotMatch(source, /process\.env\.(?!BUGLAB_TRUSTED_PROXY_HOPS\b|BUGLAB_APP_ORIGIN\b)/);
+    assert.equal((source.match(/process\.env\./g) ?? []).length, 2);
   });
 
   test("nothing in the new files logs, reads Math.random, or names the answer key", () => {

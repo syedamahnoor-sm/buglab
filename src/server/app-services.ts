@@ -49,6 +49,7 @@ import { createDefaultChallengeRegistry } from "@/server/challenges/default-regi
 import type { ChallengeRegistry } from "@/server/challenges/registry";
 import { FixedWindowLimiter } from "@/server/diagnosis/attempt-limiter";
 import { parseTrustedProxyHops } from "@/server/diagnosis/client-ip";
+import { parseAppOrigin } from "@/server/diagnosis/origin";
 import { createDiagnosisSubmissionHandler, type IpSubmissionLimiter } from "./session/diagnosis-handler";
 import { MemoryStore } from "./session/memory-store";
 import { createLearnerSessionService, type LearnerSessionService } from "./session/service";
@@ -70,6 +71,12 @@ export interface AppServicesOptions {
   /** Defaults to BUGLAB_TRUSTED_PROXY_HOPS, read now. 0 trusts no client IP. */
   trustedProxyHops?: number;
   /**
+   * The application's own origin: the parsed BUGLAB_APP_ORIGIN. Defaults to `parseAppOrigin` of that
+   * variable, read now, so a malformed value throws here instead of silently changing which origins are
+   * accepted. Pass null for "not configured" (development): the request's own URL then decides.
+   */
+  appOrigin?: string | null;
+  /**
    * The clock for the service and for whatever default store and limiter are built here. A store or
    * limiter passed in keeps its own clock, so share one with it in tests.
    */
@@ -86,6 +93,8 @@ export interface AppServices {
   readonly service: LearnerSessionService;
   readonly ipSubmissions: IpSubmissionLimiter;
   readonly trustedProxyHops: number;
+  /** The parsed BUGLAB_APP_ORIGIN, or null when it is not configured. */
+  readonly appOrigin: string | null;
   /** The challenge's current content version. Throws for a challenge the registry does not have. */
   readonly challengeVersion: (challengeId: string) => string;
   /** POST /api/challenges/:challengeId/diagnosis. Not mounted. */
@@ -97,6 +106,7 @@ export function createAppServices(options: AppServicesOptions = {}): AppServices
   const store: SessionStore = options.store ?? new MemoryStore({ now: options.now });
   const ipSubmissions = options.ipSubmissions ?? new FixedWindowLimiter({ ...IP_LIMIT, now: options.now });
   const trustedProxyHops = options.trustedProxyHops ?? parseTrustedProxyHops(process.env.BUGLAB_TRUSTED_PROXY_HOPS);
+  const appOrigin = options.appOrigin === undefined ? parseAppOrigin(process.env.BUGLAB_APP_ORIGIN) : options.appOrigin;
 
   const challengeVersion = (challengeId: string): string => {
     const version = challenges.contentVersion(challengeId);
@@ -121,12 +131,14 @@ export function createAppServices(options: AppServicesOptions = {}): AppServices
     service,
     ipSubmissions,
     trustedProxyHops,
+    appOrigin,
     challengeVersion,
     diagnosis: createDiagnosisSubmissionHandler({
       service,
       registry: challenges.diagnosisRegistry,
       ipSubmissions,
       trustedProxyHops,
+      appOrigin,
     }),
   });
 }

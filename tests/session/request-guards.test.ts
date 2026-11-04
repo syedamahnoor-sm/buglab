@@ -68,9 +68,17 @@ describe("isSameOrigin: the strict policy", () => {
     }
   });
 
-  test("an Origin is compared as a parsed origin, so an explicit default port or a trailing slash is still the same origin", () => {
+  test("an Origin is compared as a parsed origin, so an explicit default port is still the same origin", () => {
     assert.equal(isSameOrigin(make({ origin: "https://buglab.example:443" }, { url: "https://buglab.example" })), true);
-    assert.equal(isSameOrigin(make({ origin: "http://localhost:3000/" })), true);
+    assert.equal(isSameOrigin(make({ origin: "http://buglab.example:80" }, { url: "http://buglab.example" })), true);
+  });
+
+  test("an Origin is exactly scheme://host[:port]: a trailing slash, path, query or fragment is refused", () => {
+    // This is the shared helper's rule (src/server/diagnosis/origin.ts). A browser never sends any of these
+    // in an Origin, so this tightens a lenient comparison that accepted `http://localhost:3000/`.
+    for (const origin of ["http://localhost:3000/", "http://localhost:3000/path", "http://localhost:3000?x=1", "http://localhost:3000#x"]) {
+      assert.equal(isSameOrigin(make({ origin })), false, origin);
+    }
   });
 
   test("refuses a different scheme, in both directions", () => {
@@ -149,10 +157,9 @@ describe("isSameOrigin: the strict policy", () => {
     assert.equal(isSameOrigin(make({ origin: "http://localhost:3000" })), true);
   });
 
-  test("tightening for credentials changes nothing else: ordinary origins, case, default ports and a trailing slash still pass", () => {
+  test("tightening for credentials changes nothing else: ordinary origins, case and default ports still pass", () => {
     assert.equal(isSameOrigin(make({ origin: "HTTP://LOCALHOST:3000" })), true, "scheme and host are case-insensitive");
     assert.equal(isSameOrigin(make({ origin: "https://BugLab.Example:443" }, { url: "https://buglab.example" })), true);
-    assert.equal(isSameOrigin(make({ origin: "http://localhost:3000/" })), true);
     assert.equal(isSameOrigin(make({ origin: "http://sub-domain.buglab.example:8080" }, { url: "http://sub-domain.buglab.example:8080" })), true);
     assert.equal(isSameOrigin(make({ origin: "http://[::1]:3000" }, { url: "http://[::1]:3000" })), true, "an IPv6 host has no @ and passes");
   });
@@ -178,9 +185,80 @@ describe("isSameOrigin: the strict policy", () => {
     }
   });
 
-  test("a present Origin decides on its own: Sec-Fetch-Site neither rescues nor condemns it", () => {
+  test("a present Origin is always validated: Sec-Fetch-Site cannot rescue a bad one, and a non-same-origin one condemns a good one", () => {
+    // Syeda's shared helper: Fetch Metadata other than same-origin is a contradiction and is refused.
     assert.equal(isSameOrigin(make({ origin: "https://evil.example", "sec-fetch-site": "same-origin" })), false);
-    assert.equal(isSameOrigin(make({ origin: URL_BASE, "sec-fetch-site": "cross-site" })), true);
+    assert.equal(isSameOrigin(make({ origin: "null", "sec-fetch-site": "same-origin" })), false);
+    assert.equal(isSameOrigin(make({ origin: URL_BASE, "sec-fetch-site": "same-origin" })), true);
+    for (const site of ["cross-site", "same-site", "none", "bogus"]) {
+      assert.equal(isSameOrigin(make({ origin: URL_BASE, "sec-fetch-site": site })), false, site);
+    }
+  });
+});
+
+describe("isSameOrigin: a configured application origin (BUGLAB_APP_ORIGIN)", () => {
+  const APP = "https://buglab.example";
+  /** What the app sees behind a TLS-terminating proxy: the upstream URL, with the browser's real Origin. */
+  const behindProxy = { url: "http://127.0.0.1:3000" };
+  const make2 = (headers: Record<string, string>, options = behindProxy) => make({ origin: APP, ...headers }, options);
+
+  test("the real origin is accepted even though the request URL is the proxy's upstream", () => {
+    assert.equal(isSameOrigin(make2({}), APP), true);
+    assert.equal(isSameOrigin(make2({ origin: "https://BUGLAB.EXAMPLE" }), APP), true, "case");
+    assert.equal(isSameOrigin(make2({ origin: "https://buglab.example:443" }), APP), true, "explicit default port");
+    assert.equal(isSameOrigin(make2({ "sec-fetch-site": "same-origin" }), APP), true);
+  });
+
+  test("with nothing configured the same request is refused: the request's own URL is not the browser's origin", () => {
+    assert.equal(isSameOrigin(make2({})), false);
+    assert.equal(isSameOrigin(make2({}), null), false);
+  });
+
+  test("other origins, schemes and ports are refused, whatever the request URL says", () => {
+    for (const origin of ["https://evil.example", "http://buglab.example", "https://buglab.example:8443", "https://sub.buglab.example", "https://buglab.example.evil.example"]) {
+      assert.equal(isSameOrigin(make2({ origin }), APP), false, origin);
+    }
+    // The request's own URL is not trusted either: an Origin equal to the proxy's upstream is not the app's origin.
+    assert.equal(isSameOrigin(make2({ origin: "http://127.0.0.1:3000" }), APP), false);
+  });
+
+  test("Host and the forwarded headers are never consulted, in either direction", () => {
+    assert.equal(isSameOrigin(make2({ origin: "https://evil.example", host: "evil.example", "x-forwarded-host": "evil.example", "x-forwarded-proto": "https" }), APP), false);
+    assert.equal(isSameOrigin(make2({ host: "127.0.0.1:3000", "x-forwarded-host": "other.example", "x-forwarded-proto": "http" }), APP), true);
+  });
+
+  test("credentials, including empty ones, are refused even though they normalize to the app origin", () => {
+    for (const origin of ["https://evil.example@buglab.example", "https://user:pass@buglab.example", "https://@buglab.example", "https://:@buglab.example"]) {
+      assert.equal(isSameOrigin(make2({ origin }), APP), false, origin);
+      assert.equal(isSameOrigin(make2({ origin, "sec-fetch-site": "same-origin" }), APP), false, `${origin} with Fetch Metadata`);
+    }
+  });
+
+  test("an invalid Origin is refused whatever Sec-Fetch-Site says", () => {
+    for (const origin of ["null", "garbage", "https://", "https://buglab.example/", "ftp://buglab.example"]) {
+      for (const site of [undefined, "same-origin", "cross-site"]) {
+        const headers: Record<string, string> = { origin };
+        if (site) headers["sec-fetch-site"] = site;
+        assert.equal(isSameOrigin(make2(headers), APP), false, `${origin} / ${site}`);
+      }
+    }
+  });
+
+  test("with no Origin, a configured origin changes nothing: only Sec-Fetch-Site: same-origin passes, a headerless write never does", () => {
+    const headerless = () => {
+      const request = make({}, behindProxy);
+      request.headers.delete("origin");
+      return request;
+    };
+    assert.equal(isSameOrigin(headerless(), APP), false);
+    for (const site of ["same-site", "cross-site", "none", ""]) {
+      const request = headerless();
+      request.headers.set("sec-fetch-site", site);
+      assert.equal(isSameOrigin(request, APP), false, site);
+    }
+    const proven = headerless();
+    proven.headers.set("sec-fetch-site", "same-origin");
+    assert.equal(isSameOrigin(proven, APP), true);
   });
 });
 

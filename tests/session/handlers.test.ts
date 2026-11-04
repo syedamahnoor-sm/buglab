@@ -791,3 +791,85 @@ describe("session handlers: restoring a completed challenge and restarting a sta
     assert.doesNotMatch(text, /version|revision|hash|fingerprint/i, "no hint of what changed");
   });
 });
+
+describe("a configured application origin (BUGLAB_APP_ORIGIN) on the learner and challenge-session writes", () => {
+  const APP = "https://buglab.example";
+  /** Behind a TLS-terminating proxy: the app sees the upstream URL and Host, the browser sent the real Origin. */
+  const upstream = "http://127.0.0.1:3000";
+  const configured = (lab: Lab) => ({
+    learner: createLearnerHandlers({ service: lab.service, appOrigin: APP }),
+    session: createChallengeSessionHandlers({ service: lab.service, appOrigin: APP }),
+  });
+  const sessionPath = `/api/challenges/${CHALLENGE_ID}/session`;
+
+  test("the real origin is accepted behind a proxy, and the learner cookie is Secure by configuration", async () => {
+    const lab = setup();
+    const { learner, session } = configured(lab);
+
+    const started = await learner.POST(post("/api/learner", { url: upstream, headers: { origin: APP, "sec-fetch-site": "same-origin" } }));
+    assert.equal(started.status, 201);
+    const setCookie = started.headers.getSetCookie()[0];
+    assert.match(setCookie, /; HttpOnly; SameSite=Strict; Secure$/, "Secure although the request URL is http and no X-Forwarded-Proto was sent");
+    assert.match(setCookie, /Path=\/api;/);
+
+    const cookie = parseSessionToken(setCookie.split(";")[0].split("=")[1]) as string;
+    const begun = await session.POST(post(sessionPath, { url: upstream, cookie, headers: { origin: APP } }), context(CHALLENGE_ID));
+    assert.equal(begun.status, 201);
+  });
+
+  test("the same request is refused when nothing is configured: the request's own URL is not the browser's origin", async () => {
+    const lab = setup();
+    const response = await lab.learner.POST(post("/api/learner", { url: upstream, headers: { origin: APP } }));
+
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("set-cookie"), null);
+  });
+
+  test("a client cannot add or strip Secure with X-Forwarded-Proto", async () => {
+    const lab = setup();
+    const https = configured(lab).learner;
+    const http = createLearnerHandlers({ service: lab.service, appOrigin: "http://localhost:3000" });
+
+    for (const forwarded of [undefined, "http"]) {
+      const headers: Record<string, string> = { origin: APP };
+      if (forwarded) headers["x-forwarded-proto"] = forwarded;
+      const response = await https.POST(post("/api/learner", { url: upstream, headers }));
+      assert.match(response.headers.getSetCookie()[0], /; Secure$/, String(forwarded));
+    }
+    const plain = await http.POST(post("/api/learner", { url: "https://localhost:3000", headers: { origin: "http://localhost:3000", "x-forwarded-proto": "https" } }));
+    assert.equal(plain.status, 201);
+    assert.doesNotMatch(plain.headers.getSetCookie()[0], /Secure/);
+  });
+
+  test("every refusal is 403 and creates nothing: other origins, credentials (empty too), an invalid Origin even with proof, a contradicting Sec-Fetch-Site", async () => {
+    const lab = setup();
+    const { learner } = configured(lab);
+    const refusals: Array<Record<string, string>> = [
+      { origin: "https://evil.example" },
+      { origin: "http://127.0.0.1:3000" },
+      { origin: "http://buglab.example" },
+      { origin: "https://evil.example@buglab.example" },
+      { origin: "https://@buglab.example" },
+      { origin: "https://:@buglab.example", "sec-fetch-site": "same-origin" },
+      { origin: "null", "sec-fetch-site": "same-origin" },
+      { origin: "garbage", "sec-fetch-site": "same-origin" },
+      { origin: APP, "sec-fetch-site": "cross-site" },
+      { origin: "", "sec-fetch-site": "cross-site" },
+      { origin: "" }, // no Origin and no proof
+    ];
+    for (const headers of refusals) {
+      const response = await learner.POST(post("/api/learner", { url: upstream, headers }));
+      assert.equal(response.status, 403, JSON.stringify(headers));
+      assert.equal(response.headers.get("set-cookie"), null);
+    }
+    assert.equal(learnerCount(lab), 0, "nothing was created");
+  });
+
+  test("a headerless learner write is refused with a configured origin too; only Sec-Fetch-Site: same-origin stands in for Origin", async () => {
+    const lab = setup();
+    const { learner } = configured(lab);
+
+    assert.equal((await learner.POST(post("/api/learner", { url: upstream, headers: { origin: "" } }))).status, 403);
+    assert.equal((await learner.POST(post("/api/learner", { url: upstream, headers: { origin: "", "sec-fetch-site": "same-origin" } }))).status, 201);
+  });
+});
