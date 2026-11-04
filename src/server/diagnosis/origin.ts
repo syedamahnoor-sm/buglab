@@ -33,6 +33,10 @@ const WEB_SCHEMES = new Set(["http:", "https:"]);
  * queries, fragments, credentials, a trailing slash and opaque origins fail.
  */
 export function normalizeOrigin(value: string): string | null {
+  // Any "@" is userinfo syntax, since nothing else after the scheme may hold
+  // one. The parser drops empty credentials from href, so "https://@host" and
+  // "https://:@host" would otherwise pass the exact-origin check below.
+  if (value.includes("@")) return null;
   let url: URL;
   try {
     url = new URL(value);

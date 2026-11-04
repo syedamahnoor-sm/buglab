@@ -101,6 +101,78 @@ describe("model URIs", () => {
   });
 });
 
+/*
+ * Literal percent signs, checked with Monaco's own URI class: Monaco decodes a
+ * model URI's path, so a file named "50%20off.md" must not turn into
+ * "50 off.md" or share a model with it.
+ */
+describe("model URIs with literal percent signs (Monaco's URI parser)", () => {
+  type MonacoUri = { path: string; toString(): string };
+  const monacoUri = new URL("../../node_modules/monaco-editor/esm/vs/base/common/uri.js", import.meta.url);
+  const load = async () => (await import(monacoUri.href)) as { URI: { parse(value: string): MonacoUri } };
+  const filePath = (uri: MonacoUri) => uri.path.slice("/challenges/c1/".length);
+
+  test("50%20off.md keeps its %20 and is not decoded into a space", async () => {
+    const { URI } = await load();
+    const uri = getModelUri("c1", "docs/50%20off.md");
+    assert.equal(uri, `${MODEL_URI_ROOT}c1/docs/50%2520off.md`);
+    assert.equal(filePath(URI.parse(uri)), "docs/50%20off.md");
+  });
+
+  test("50%20off.md and 50 off.md are different models", async () => {
+    const { URI } = await load();
+    const literal = URI.parse(getModelUri("c1", "50%20off.md"));
+    const spaced = URI.parse(getModelUri("c1", "50 off.md"));
+    assert.equal(filePath(literal), "50%20off.md");
+    assert.equal(filePath(spaced), "50 off.md");
+    assert.notEqual(literal.toString(), spaced.toString());
+  });
+
+  test("the model for 50%20off.md is the one selected, whichever file was opened first", () => {
+    const { host, models } = createFakeMonaco();
+    const literal = { uri: getModelUri("c1", "50%20off.md"), content: "literal percent", language: "markdown" } as const;
+    const spaced = { uri: getModelUri("c1", "50 off.md"), content: "real space", language: "markdown" } as const;
+    const a = syncModel(host, literal);
+    const b = syncModel(host, spaced);
+    assert.notEqual(a, b);
+    assert.equal(models.size, 2);
+    assert.equal(syncModel(host, literal), a, "reopening selects the same model");
+    assert.equal(syncModel(host, literal).getValue(), "literal percent");
+    assert.equal(syncModel(host, spaced).getValue(), "real space");
+  });
+
+  test("percent escapes, Unicode, nesting and special characters all round-trip without collisions", async () => {
+    const { URI } = await load();
+    const paths = [
+      "50%20off.md",
+      "50 off.md",
+      "100%.md",
+      "a%zz.md",
+      "%41.md",
+      "A.md",
+      "a%2fb.md",
+      "a/b.md",
+      "%2e%2e/x.md",
+      "%252e.md",
+      "caf%C3%A9.md",
+      "café.md",
+      "日本語/ファイル.ts",
+      "emoji-🐛.md",
+      'quo"te.md',
+      "notes/a b#1?.md",
+      "src/deep/nested/path/file.ts",
+    ];
+    const keys = new Map<string, string>();
+    for (const path of paths) {
+      const uri = URI.parse(getModelUri("c1", path));
+      assert.equal(filePath(uri), path, `round-trips: ${path}`);
+      const key = uri.toString();
+      assert.equal(keys.get(key), undefined, `${path} collides with ${keys.get(key)}`);
+      keys.set(key, path);
+    }
+  });
+});
+
 describe("model sync", () => {
   test("creates a model with the file's content and language", () => {
     const { host } = createFakeMonaco();

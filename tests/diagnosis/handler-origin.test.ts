@@ -33,6 +33,8 @@ describe("POST /api/challenges/:id/diagnosis: origin checks", () => {
       { origin: APP, "sec-fetch-site": "cross-site" },
       { "sec-fetch-site": "same-site" },
       { origin: "https://evil.example", host: "evil.example", "x-forwarded-host": "evil.example" },
+      { origin: "https://@buglab.example" },
+      { origin: "https://:@buglab.example", "sec-fetch-site": "same-origin" },
     ];
     for (const headers of rejected) {
       const { response, json } = await post(handler, {
