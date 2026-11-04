@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ChallengeLibrary } from "@/components/challenge/ChallengeLibrary";
-import { listChallengeSummaries } from "@/lib/challenge-catalog";
-import { challengePath } from "@/lib/challenge-routes";
+import { listPublishedChallenges } from "@/lib/challenge-catalog";
 
 export const metadata: Metadata = {
   title: "BugLab · Challenge Library",
@@ -9,6 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ChallengesPage() {
-  const entries = listChallengeSummaries().map((challenge) => ({ challenge, href: challengePath(challenge.id) }));
-  return <ChallengeLibrary entries={entries} />;
+  return <ChallengeLibrary challenges={listPublishedChallenges()} />;
 }

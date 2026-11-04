@@ -2,6 +2,7 @@ import { FixedWindowLimiter } from "@/server/diagnosis/attempt-limiter";
 import { parseTrustedProxyHops } from "@/server/diagnosis/client-ip";
 import { createDiagnosisHandler } from "@/server/diagnosis/handler";
 import { parseAppOrigin } from "@/server/diagnosis/origin";
+import { restrictToPublished } from "@/server/diagnosis/published";
 import { createDefaultRegistry } from "@/server/diagnosis/registry";
 
 const TEN_MINUTES = 10 * 60 * 1000;
@@ -17,7 +18,8 @@ store.__buglabDiagnosisLimiters ??= {
 };
 
 export const POST = createDiagnosisHandler({
-  registry: createDefaultRegistry(),
+  // Only published challenges accept submissions; see published.ts.
+  registry: restrictToPublished(createDefaultRegistry()),
   ...store.__buglabDiagnosisLimiters,
   trustedProxyHops: parseTrustedProxyHops(process.env.BUGLAB_TRUSTED_PROXY_HOPS),
   // Required in deployments; unset only for local development. See origin.ts.

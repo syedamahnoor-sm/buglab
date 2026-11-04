@@ -1,185 +1,162 @@
+/*
+ * Challenge Library v2. The interactive explorer reads the URL in the browser,
+ * so these tests render its presentational view (ExplorerView) directly with
+ * each kind of query, plus the page shell and its static fallback.
+ */
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import ChallengesPage, { metadata } from "@/app/challenges/page";
-import { ChallengeLibrary, type ChallengeLibraryEntry } from "@/components/challenge/ChallengeLibrary";
+import { StaticChallengeList } from "@/components/challenge/ChallengeLibrary";
+import { ExplorerView } from "@/components/challenge/library/ExplorerView";
 import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
-import type { ChallengeSummary } from "@/types/workspace";
+import { EMPTY_QUERY, type DiscoveryQuery } from "@/lib/catalog/discovery";
+import { listPublishedChallenges } from "@/lib/challenge-catalog";
+import type { PublicChallenge } from "@/types/catalog";
+import { fixtureChallenge } from "../catalog/fixtures";
 
-const renderPage = () => renderToStaticMarkup(createElement(ChallengesPage));
-const renderLibrary = (entries: ChallengeLibraryEntry[]) =>
-  renderToStaticMarkup(createElement(ChallengeLibrary, { entries }));
+const shipped = listPublishedChallenges();
+const view = (challenges: PublicChallenge[], query: Partial<DiscoveryQuery> = {}) =>
+  renderToStaticMarkup(createElement(ExplorerView, { challenges, query: { ...EMPTY_QUERY, ...query }, onQueryChange: () => {} }));
+const headings = (markup: string) => [...markup.matchAll(/<h2 id="[^"]+"[^>]*>([^<]+)</g)].map(([, text]) => text);
+const sectionHeadings = (markup: string) => headings(markup).filter((heading) => !["Categories", "Filters"].includes(heading));
+const source = (path: string) => readFileSync(new URL(`../../src/${path}`, import.meta.url), "utf8");
 
-const SRC = fileURLToPath(new URL("../../src/", import.meta.url));
-const source = (path: string) => readFileSync(join(SRC, path), "utf8");
-const imports = (text: string) => [...text.matchAll(/from "([^"]+)"/g)].map(([, from]) => from);
+describe("discovery sections with the shipped catalog (Challenge 001 only)", () => {
+  const markup = view(shipped);
 
-/** Every .ts/.tsx file under src, as paths relative to src. */
-function sourceFiles(dir = SRC): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return sourceFiles(path);
-    return /\.tsx?$/.test(name) ? [path.slice(SRC.length).replaceAll("\\", "/")] : [];
-  });
-}
-
-/** Test-only summaries; never part of the catalog. */
-const fixture = (id: string, number: string, title: string): ChallengeSummary => ({
-  ...challenge001.challenge,
-  id,
-  number,
-  title,
-  tags: [`${title} tag`],
-});
-
-const challenge = challenge001.challenge;
-
-/** The "Available challenges" section, where the cards are. */
-function cardSection(markup: string): string {
-  const section = markup.match(/<section aria-labelledby="available-challenges-heading"[\s\S]*?<\/section>/)?.[0];
-  assert.ok(section, "has an Available challenges section");
-  return section;
-}
-
-/** Card links: [aria-labelledby, href] for each, in order. */
-const cardLinks = (markup: string) =>
-  [...cardSection(markup).matchAll(/<a aria-labelledby="([^"]+)"[^>]* href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
-
-describe("/challenges", () => {
-  test("renders the library with exactly the catalog's entry for Challenge 001", () => {
-    assert.equal(renderPage(), renderLibrary([{ challenge, href: "/challenges/challenge-001" }]));
+  test("Challenge 001 is featured, with the case-file card and an Open investigation link", () => {
+    assert.match(markup, /<section aria-labelledby="featured-heading"/);
+    assert.match(markup, /<a aria-labelledby="challenge-card-challenge-001-title"[^>]*href="\/challenges\/challenge-001"/);
+    assert.ok(markup.includes("Open investigation"));
+    assert.ok(markup.includes(challenge001.challenge.incident));
   });
 
-  test("has a clear heading, an introduction and the challenge count", () => {
-    const markup = renderPage();
-    assert.match(markup, /<main aria-labelledby="challenge-library-heading"/);
-    assert.match(markup, /<h1 id="challenge-library-heading"[^>]*>Every bug has a story\.<\/h1>/);
-    assert.ok(markup.includes("diagnose the root cause"));
+  test("sections with nothing new to show are left out; Continue investigating shows an honest empty state", () => {
+    assert.deepEqual(sectionHeadings(markup), ["Featured investigation", "Continue investigating", "All investigations"]);
+    assert.ok(markup.includes("Nothing in progress yet."));
+    assert.doesNotMatch(markup, /Recommended for you|Beginner-friendly/);
+  });
+
+  test("categories and counts come from the catalog, with no empty categories", () => {
+    const sidebar = markup.slice(markup.indexOf('aria-label="Filters"'), markup.indexOf("</aside>"));
+    assert.match(sidebar, /aria-pressed="true"[^>]*>[\s\S]*?All challenges[\s\S]*?>1</);
+    assert.match(sidebar, />Authentication<[\s\S]*?>1</);
+    assert.doesNotMatch(sidebar, /APIs|Databases|Frontend|Performance|Infrastructure/);
     assert.ok(markup.includes(">1 challenge available<"));
-    assert.equal(markup.match(/<h1\b/g)?.length, 1, "one page heading");
   });
 
-  test("shows Challenge 001 as the only card, linking to its own workspace route", () => {
-    const markup = renderPage();
-    assert.equal(markup.match(/<article\b/g)?.length, 1);
-    assert.equal(cardSection(markup).match(/<a\b/g)?.length, 1);
-    assert.deepEqual(cardLinks(markup), [["challenge-card-challenge-001-title", "/challenges/challenge-001"]]);
-    for (const text of [challenge.title, challenge.incident, `Challenge ${challenge.number}`]) {
-      assert.ok(markup.includes(text), text);
-    }
+  test("no fabricated metrics, ratings or learner counts", () => {
+    assert.doesNotMatch(markup, /rating|learners|completion rate|popular|% complete/i);
   });
 
-  test("sets its own page title", () => {
-    assert.equal(metadata.title, "BugLab · Challenge Library");
+  test("nothing from the answer key or the scenario's code reaches the page", () => {
+    for (const field of ["correctRootCauseId", "resolutionSummary", "keyObservations"]) assert.ok(!markup.includes(field), field);
+    assert.ok(!markup.includes(provisionalAnswerKey.resolutionSummary));
+    for (const option of challenge001.rootCauseOptions) assert.ok(!markup.includes(option.label), option.id);
+    assert.ok(!markup.includes(challenge001.files[2].content.slice(0, 40)), "no scenario file contents");
   });
 });
 
-describe("ChallengeLibrary", () => {
-  const entries: ChallengeLibraryEntry[] = [
-    { challenge: fixture("fixture-a", "101", "Fixture Alpha"), href: "/play/a" },
-    { challenge: fixture("fixture-b", "102", "Fixture Beta"), href: "/play/b" },
-    { challenge: fixture("fixture-c", "103", "Fixture Gamma"), href: "/play/c" },
+describe("a larger catalog", () => {
+  const catalog = [
+    ...shipped,
+    fixtureChallenge("challenge-002", { difficulty: "beginner" }),
+    fixtureChallenge("challenge-003", { difficulty: "advanced", category: "frontend", technologies: ["React"] }),
   ];
 
-  test("renders one linked card per entry, in the order given", () => {
-    const markup = renderLibrary(entries);
-    assert.ok(markup.includes(">3 challenges available<"));
-    assert.equal(cardSection(markup).match(/<li><a\b/g)?.length, 3, "one list item per card");
-    assert.equal(markup.match(/<article\b/g)?.length, 3);
-    const titles = [...markup.matchAll(/<h3 id="challenge-card-[^"]+"[^>]*>([^<]+)</g)].map(([, title]) => title);
-    assert.deepEqual(titles, ["Fixture Alpha", "Fixture Beta", "Fixture Gamma"]);
-    const links = cardLinks(markup);
-    assert.deepEqual(links, [
-      ["challenge-card-fixture-a-title", "/play/a"],
-      ["challenge-card-fixture-b-title", "/play/b"],
-      ["challenge-card-fixture-c-title", "/play/c"],
+  test("recommendations and beginner-friendly appear, without repeating the featured challenge", () => {
+    const markup = view(catalog);
+    assert.deepEqual(sectionHeadings(markup), [
+      "Featured investigation",
+      "Continue investigating",
+      "Recommended for you",
+      "Beginner-friendly",
+      "All investigations",
     ]);
-    for (const [titleId] of links) assert.match(markup, new RegExp(`<h3 id="${titleId}"`), "link names resolve");
+    const recommended = markup.slice(markup.indexOf("recommended-heading"), markup.indexOf("beginner-heading"));
+    assert.ok(!recommended.includes("challenge-001"), "the featured challenge is not recommended again");
+    assert.ok(recommended.includes("Chosen from the catalog"), "says how recommendations are made");
   });
 
-  test("pairs several cards on wide screens, and lays each card out by its own width", () => {
-    const markup = renderLibrary(entries);
-    assert.match(markup, /<ul aria-labelledby="available-challenges-heading" class="grid gap-4 lg:grid-cols-2">/);
-    assert.equal(markup.match(/<article [^>]*class="@container /g)?.length, 3, "each card is a size container");
+  test("filtered: only results, with chips, a count and Clear filters", () => {
+    const markup = view(catalog, { difficulties: ["beginner"], technologies: ["Go"] });
+    assert.deepEqual(sectionHeadings(markup), ["Results"]);
+    assert.ok(markup.includes(">1 of 3 challenges<"));
+    assert.match(markup, /<ul aria-label="Active filters"/);
+    assert.ok(markup.includes("Remove filter: </span>Beginner"));
+    assert.ok(markup.includes("Remove filter: </span>Go"));
+    assert.ok(markup.includes(">Clear filters<"));
   });
 
-  test("each card is a single keyboard-focusable link with a visible focus style and no nested controls", () => {
-    const markup = renderLibrary(entries);
-    const cards = cardSection(markup);
-    assert.doesNotMatch(markup, /<(button|input|select|textarea|form)\b/);
-    assert.doesNotMatch(cards.slice(cards.indexOf("<ul")), /tabindex=/, "cards add no extra tab stops");
-    for (const [, link] of cards.matchAll(/<a\b([^>]*)>/g)) {
-      assert.match(link, /focus-visible:outline-accent/);
-      assert.match(link, /\bgroup\b/, "drives the card's hover and focus styles");
-    }
-    for (const [, inner] of markup.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)) assert.doesNotMatch(inner, /<a\b/);
-  });
-
-  test("gives a single card the full column width", () => {
-    const markup = renderLibrary(entries.slice(0, 1));
-    assert.match(markup, /<ul aria-labelledby="available-challenges-heading" class="grid gap-4">/);
-  });
-
-  test("makes Open investigation the card link's call to action", () => {
-    const cards = cardSection(renderLibrary(entries));
-    assert.equal(cards.match(/>Open investigation</g)?.length, 3);
-    assert.equal(cards.match(/class="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent /g)?.length, 3);
-  });
-
-  test("shows an empty message, not placeholder cards, when there are no entries", () => {
-    const markup = renderLibrary([]);
-    assert.ok(markup.includes(">0 challenges available<"));
-    assert.ok(markup.includes("No challenges are available yet."));
-    assert.doesNotMatch(cardSection(markup), /<(article|ul|a)\b/);
+  test("no results: a clear state and a way out", () => {
+    const markup = view(catalog, { q: "kubernetes" });
+    assert.ok(markup.includes("No challenges match these filters"));
+    assert.ok(markup.includes(">0 of 3 challenges<"));
+    assert.doesNotMatch(markup, /<article/);
   });
 });
 
-describe("/challenges: public data only", () => {
-  test("shows no answer-key data, resolution text or root-cause options", () => {
-    const markup = renderPage();
-    for (const field of ["correctRootCauseId", "resolutionSummary", "keyObservations", "keyEvidence"]) {
-      assert.ok(!markup.includes(field), field);
+describe("empty catalog", () => {
+  test("says nothing is published and offers no filters", () => {
+    const markup = view([]);
+    assert.ok(markup.includes("No challenges are published yet"));
+    assert.doesNotMatch(markup, /<input|<dialog|<aside/);
+    assert.ok(renderToStaticMarkup(createElement(StaticChallengeList, { challenges: [] })).includes("No challenges are published yet."));
+  });
+});
+
+describe("accessibility", () => {
+  const markup = view(shipped);
+
+  test("search and sort are labelled; the result count is announced", () => {
+    assert.match(markup, /<label for="challenge-search"[^>]*><span class="sr-only">Search challenges<\/span>/);
+    assert.match(markup, /<input id="challenge-search" type="search"/);
+    assert.match(markup, /<span>Sort<\/span><select/);
+    assert.match(markup, /<p id="challenge-results" aria-live="polite"/);
+  });
+
+  test("filters are grouped and named; categories are toggle buttons", () => {
+    assert.match(markup, /<legend[^>]*>Difficulty<\/legend>/);
+    assert.match(markup, /<legend[^>]*>Technologies<\/legend>/);
+    assert.match(markup, /<nav aria-labelledby="sidebar-categories"/);
+    assert.match(markup, /<button type="button" aria-pressed="(true|false)"/);
+  });
+
+  test("the mobile drawer is a named dialog with a close button, and every id is unique", () => {
+    assert.match(markup, /<dialog aria-labelledby="filters-drawer-heading"/);
+    assert.match(markup, /aria-label="Close filters"/);
+    assert.match(markup, /aria-haspopup="dialog"/);
+    const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id);
+    assert.equal(new Set(ids).size, ids.length, "duplicate ids");
+  });
+
+  test("every card is one link named by its title, with no nested controls", () => {
+    for (const [, inner] of markup.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)) assert.doesNotMatch(inner, /<(a|button|input|select)\b/);
+  });
+});
+
+describe("page and boundaries", () => {
+  test("the page passes only the published catalog; the explorer has a static fallback", () => {
+    assert.match(source("app/challenges/page.tsx"), /<ChallengeLibrary challenges=\{listPublishedChallenges\(\)\} \/>/);
+    assert.match(source("components/challenge/ChallengeLibrary.tsx"), /<Suspense fallback=\{<StaticChallengeList challenges=\{challenges\} \/>\}>/);
+  });
+
+  test("the static fallback lists every published challenge as a link", () => {
+    const markup = renderToStaticMarkup(createElement(StaticChallengeList, { challenges: shipped }));
+    assert.match(markup, /href="\/challenges\/challenge-001"/);
+  });
+
+  test("client components import no scenarios, catalog data, answer keys or server code", () => {
+    for (const path of [
+      "components/challenge/library/ExplorerView.tsx",
+      "components/challenge/library/ChallengeExplorer.tsx",
+      "components/challenge/library/FilterPanel.tsx",
+      "components/challenge/library/DiscoveryCard.tsx",
+    ]) {
+      assert.doesNotMatch(source(path), /@\/lib\/challenge-catalog|@\/data\/catalog["']|@\/data\/challenge-|@\/server\/|answer-key/, path);
     }
-    assert.ok(!markup.includes(provisionalAnswerKey.resolutionSummary), "resolution summary");
-    assert.ok(!markup.includes(provisionalAnswerKey.correctRootCauseId), "correct option ID");
-    for (const option of challenge001.rootCauseOptions) {
-      assert.ok(!markup.includes(option.label), option.id);
-      assert.ok(!markup.includes(option.description), option.id);
-    }
-  });
-
-  test("the route reads only the public catalog and renders the shared library", () => {
-    const page = source("app/challenges/page.tsx");
-    assert.deepEqual(imports(page), [
-      "next",
-      "@/components/challenge/ChallengeLibrary",
-      "@/lib/challenge-catalog",
-      "@/lib/challenge-routes",
-    ]);
-    assert.doesNotMatch(page, /use client|@\/server\/|answer-key|\.server\b|fetch\(/);
-  });
-
-  test("the library component is a server component that reads no challenge data itself", () => {
-    const library = source("components/challenge/ChallengeLibrary.tsx");
-    assert.deepEqual(imports(library), [
-      "next/link",
-      "@/components/layout/AppHeader",
-      "@/components/layout/SkipLinks",
-      "@/components/ui/icons",
-      "@/types/workspace",
-      "./ChallengeCard",
-    ]);
-    assert.doesNotMatch(library, /use client/);
-  });
-
-  test("no client component imports the catalog", () => {
-    const users = sourceFiles().filter((path) => source(path).includes("@/lib/challenge-catalog"));
-    assert.deepEqual(users.sort(), ["app/challenges/[challengeId]/page.tsx", "app/challenges/page.tsx", "proxy.ts"]);
-    for (const path of users) assert.doesNotMatch(source(path), /["']use client["']/, path);
   });
 });
