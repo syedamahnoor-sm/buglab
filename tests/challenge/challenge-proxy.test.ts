@@ -51,7 +51,7 @@ describe("challenge proxy: request handling", () => {
   });
 
   test("rejects unknown IDs with a 404", async () => {
-    for (const id of ["challenge-999", "challenge-002", "001", "__proto__", "constructor", "x"]) {
+    for (const id of ["challenge-999", "challenge-9999", "001", "__proto__", "constructor", "x"]) {
       await assertRejected(`/challenges/${id}`);
     }
   });

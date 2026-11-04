@@ -463,7 +463,8 @@ describe("the read-only views: inspection works, and the equality and cloning li
   });
 
   test("inspecting the registry's diagnosis map shows the challenge", () => {
-    assert.match(inspect(createDefaultChallengeRegistry().diagnosisRegistry), /^ReadOnlyMap\(1\) \{\s+'challenge-001' => /);
+    const map = createDefaultChallengeRegistry().diagnosisRegistry;
+    assert.match(inspect(map), new RegExp(String.raw`^ReadOnlyMap\(${map.size}\) \{\s+'challenge-001' => `));
   });
 
   test("inspection does not weaken immutability: the inspector's output is a string, and the view is unchanged", () => {

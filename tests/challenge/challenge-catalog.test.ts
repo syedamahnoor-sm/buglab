@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
+import { REGISTERED_CHALLENGES } from "@/data/catalog";
 import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
 import {
@@ -58,8 +59,9 @@ describe("challenge catalog: lookup", () => {
 });
 
 describe("challenge catalog: listing", () => {
-  test("lists Challenge 001 as the only available challenge", () => {
-    assert.deepEqual(listChallengeSummaries(), [challenge001.challenge]);
+  test("lists every registered challenge, Challenge 001 first", () => {
+    assert.deepEqual(listChallengeSummaries(), REGISTERED_CHALLENGES.map((entry) => entry.scenario.challenge));
+    assert.deepEqual(listChallengeSummaries()[0], challenge001.challenge);
   });
 
   test("every listed summary is the summary of the scenario with that ID", () => {
@@ -91,7 +93,7 @@ describe("challenge catalog: listing", () => {
     first.reverse();
     first.push(summary("challenge-x", "999"));
     first.length = 0;
-    assert.deepEqual(listChallengeSummaries(), [challenge001.challenge]);
+    assert.deepEqual(listChallengeSummaries(), REGISTERED_CHALLENGES.map((entry) => entry.scenario.challenge));
     assert.notEqual(listChallengeSummaries(), listChallengeSummaries(), "a new array each call");
   });
 

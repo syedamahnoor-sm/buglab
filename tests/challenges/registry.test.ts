@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { REGISTERED_CHALLENGES } from "@/data/catalog";
 import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
 import { challenge001Definition, challenge001Source } from "@/server/challenges/challenge-001";
@@ -15,10 +16,12 @@ const registry = createDefaultChallengeRegistry();
 
 describe("Challenge 001 loads", () => {
   test("the default registry builds without error and lists the challenge", () => {
+    // Challenge 001 first, then every challenge the catalog registers, in the same order.
     assert.deepEqual(
       registry.list().map((summary) => summary.id),
-      [ID],
+      REGISTERED_CHALLENGES.map((entry) => entry.scenario.challenge.id),
     );
+    assert.equal(registry.list()[0].id, ID);
   });
 
   test("the loader builds the same registry from the Challenge 001 source", () => {
@@ -41,7 +44,8 @@ describe("every current id and public field is preserved", () => {
   });
 
   test("summary, ordering and counts are unchanged", () => {
-    assert.deepEqual(onTheWire(registry.list()), [onTheWire(challenge001.challenge)]);
+    assert.deepEqual(onTheWire(registry.list()[0]), onTheWire(challenge001.challenge));
+    assert.equal(registry.list().length, REGISTERED_CHALLENGES.length);
     assert.equal(view.contractVersion, 1);
     assert.equal(view.entryFilePath, "INCIDENT.md");
     assert.equal(view.incidentDate, challenge001.incidentDate);

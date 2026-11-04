@@ -148,6 +148,6 @@ describe("the catalog scales to 30 challenges in six categories", () => {
     assert.equal(allSection.match(/<article/g)?.length, 30);
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id);
     assert.equal(new Set(ids).size, ids.length, "duplicate ids");
-    for (const category of CATEGORIES) assert.ok(markup.includes(`>${category.label}<`), category.label);
+    for (const category of CATEGORIES) assert.ok(markup.includes(`>${category.label.replaceAll("&", "&amp;")}<`), category.label);
   });
 });

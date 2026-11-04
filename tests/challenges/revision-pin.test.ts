@@ -50,6 +50,106 @@ const PINS: Readonly<Record<string, Pin>> = {
     revision: "1",
     evaluationDigest: "91c71d8d2492864e892c9113728dd40bf2965729ac8d5ad3d43ae170fb83ebb1",
   },
+  "challenge-002": {
+    revision: "1",
+    evaluationDigest: "ebe98a954be5c843f5744d6be2aa2a133a98024c323a45bb91fc06c46427f336",
+  },
+  "challenge-003": {
+    revision: "1",
+    evaluationDigest: "0f48260b20d763ae7dc8f306efc452c79b5cc9cec65130d4f22b2c010ee33656",
+  },
+  "challenge-004": {
+    revision: "1",
+    evaluationDigest: "6bc1959fe8e61ab8536eb866427084d204fcf43da1d5d89eb8d452169d16bc41",
+  },
+  "challenge-005": {
+    revision: "1",
+    evaluationDigest: "d48bc0e4b2318544a5e0029fcf7de15813483cf6c3b5848bb48634cdf821e7d8",
+  },
+  "challenge-006": {
+    revision: "1",
+    evaluationDigest: "4ef6c33705c884dafcc437e630cb6ca415f4fde348ce744cb87c5c6c96c2b5cc",
+  },
+  "challenge-007": {
+    revision: "1",
+    evaluationDigest: "60ed3c3ecec81fbe7b26a31670a985a02989660f6849625bd9a35dc569b4bad2",
+  },
+  "challenge-008": {
+    revision: "1",
+    evaluationDigest: "0b6364674ea24e94f130575266bb845648905e4cbe9f0d2e94595f92de2e9e20",
+  },
+  "challenge-009": {
+    revision: "1",
+    evaluationDigest: "70161322e4083b9438c5971b265c7d647cf172bb9bee48dfac5e2a4617a5b5b4",
+  },
+  "challenge-010": {
+    revision: "1",
+    evaluationDigest: "40730139dae2749889e607306ecb1e8e9ac03512b58ad0a18834da0b57bb128b",
+  },
+  "challenge-011": {
+    revision: "1",
+    evaluationDigest: "aada900d084f862b5061f250eb33c5c01320d18815fb04cc7c84b2ec978b07e7",
+  },
+  "challenge-012": {
+    revision: "1",
+    evaluationDigest: "793b1b7c69b0063b8fe89aba6f61156a1d6c8e574ae11a0fc06b7b435fae3105",
+  },
+  "challenge-013": {
+    revision: "1",
+    evaluationDigest: "d415275680458c924a7021d9974beff48dcd8c483847ded77c08023b86697daa",
+  },
+  "challenge-014": {
+    revision: "1",
+    evaluationDigest: "da438669bed64a83a9dba7e2233f174f8a04510da83e314f8bcc9178826f4747",
+  },
+  "challenge-015": {
+    revision: "1",
+    evaluationDigest: "2208d51cc49d826f567ff448e461f52b25ee54c6078eedf36abb806aaf9fad77",
+  },
+  "challenge-016": {
+    revision: "1",
+    evaluationDigest: "c23edfbc628cce545e64251a887ae9152959c79f963fd16a54798d6d8c305851",
+  },
+  "challenge-017": {
+    revision: "1",
+    evaluationDigest: "d70f3e6653f56eb2fdb7fccd4a32c2de074f5a3a17f750f20f12b4e6790b75f9",
+  },
+  "challenge-018": {
+    revision: "1",
+    evaluationDigest: "510ef0e7f3714dd896165a48f826433e1667cd989382ea1f5f4028ba1470deac",
+  },
+  "challenge-019": {
+    revision: "1",
+    evaluationDigest: "b98ac850d8a2c84081acf87d6533bf958a79a00168ab416ac0a0b6d4d52700ba",
+  },
+  "challenge-020": {
+    revision: "1",
+    evaluationDigest: "1ab1c707abf845e37dc6a7b9c622f5a7c0fb5554796b2c0d48ac9ff2dcdaa925",
+  },
+  "challenge-021": {
+    revision: "1",
+    evaluationDigest: "98b7da6c720eeee00251f4b39e3874edada33d29bdb027882ef291da7fcdabff",
+  },
+  "challenge-022": {
+    revision: "1",
+    evaluationDigest: "bba788209c04fdd66fcbe78e1cde1afb363afe474f02af0713706bb67d06ed60",
+  },
+  "challenge-026": {
+    revision: "1",
+    evaluationDigest: "006d3278597114b9e1045a8ee349755a39257090ef4be738fdf4c063fc7f473c",
+  },
+  "challenge-028": {
+    revision: "1",
+    evaluationDigest: "4db3781a80eb0c9a8e6a1691426d2f41eb1828265dd596c822e2d2075503074c",
+  },
+  "challenge-029": {
+    revision: "1",
+    evaluationDigest: "7b6e5eaf1777da824b9c185e8897d1999dbab3e494347e4d699f19622f3fee18",
+  },
+  "challenge-030": {
+    revision: "1",
+    evaluationDigest: "11067b73867db7d08bdc6d8f2598f5f17da329642f82065770968b813a836186",
+  },
 };
 
 const digestOf = (definition: ChallengeDefinition) =>
@@ -130,12 +230,12 @@ describe("the private evaluation configuration of every default challenge is pin
 });
 
 describe("a challenge that is registered without a pin cannot pass", () => {
-  /** A second, valid challenge: Challenge 001's content under another id. */
+  /** Another valid challenge, not yet registered: Challenge 001's content under an unused id. */
   const secondChallenge = (change?: (draft: ReturnType<typeof draftOf>) => void) =>
     staticChallengeSource("a-newly-registered-challenge", [
       draftOf((draft) => {
-        (draft.scenario.challenge as { id: string }).id = "challenge-002";
-        draft.scenario.challenge.number = "002";
+        (draft.scenario.challenge as { id: string }).id = "challenge-9999";
+        draft.scenario.challenge.number = "9999";
         change?.(draft);
       }),
     ]);
@@ -147,14 +247,14 @@ describe("a challenge that is registered without a pin cannot pass", () => {
   test("registering it fails the pin check, and the message says exactly what to add", () => {
     const problems = problemsFor([...defaultChallengeSources, secondChallenge()], PINS);
     assert.equal(problems.length, 1, problems.join("\n"));
-    assert.match(problems[0], /challenge-002 has no entry in PINS/);
-    assert.match(problems[0], /"challenge-002": \{ revision: "1", evaluationDigest: "[0-9a-f]{64}" \}/);
+    assert.match(problems[0], /challenge-9999 has no entry in PINS/);
+    assert.match(problems[0], /"challenge-9999": \{ revision: "1", evaluationDigest: "[0-9a-f]{64}" \}/);
   });
 
   test("giving it a pin makes it pass, and then a changed answer key fails until the revision is bumped", () => {
     const added = secondChallenge();
     const [definition] = definitionsOf([added]);
-    const pins = { ...PINS, "challenge-002": { revision: definition.revision, evaluationDigest: digestOf(definition) } };
+    const pins = { ...PINS, "challenge-9999": { revision: definition.revision, evaluationDigest: digestOf(definition) } };
     assert.deepEqual(problemsFor([...defaultChallengeSources, added], pins), []);
 
     const edited = secondChallenge((draft) => {
@@ -162,7 +262,7 @@ describe("a challenge that is registered without a pin cannot pass", () => {
     });
     const problems = problemsFor([...defaultChallengeSources, edited], pins);
     assert.equal(problems.length, 1);
-    assert.match(problems[0], /private evaluation configuration of challenge-002 has changed/);
+    assert.match(problems[0], /private evaluation configuration of challenge-9999 has changed/);
   });
 
   test("a challenge that is later removed leaves a stale pin that fails", () => {

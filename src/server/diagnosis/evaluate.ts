@@ -2,8 +2,10 @@
  * Compares a validated submission with the answer key. Server-only.
  *
  * Incorrect feedback is deliberately generic: it is identical for every
- * wrong option and depends only on the learner's own input, so it never
- * narrows down or confirms the correct answer.
+ * wrong option and depends only on the challenge and the learner's own input,
+ * so it never narrows down or confirms the correct answer. A challenge may
+ * replace the generic hints with its own investigation hints, which follow
+ * the same rule.
  */
 import "server-only";
 import { getEvidenceId } from "@/lib/evidence";
@@ -27,11 +29,13 @@ function summarizeEvidence(submission: DiagnosisSubmission) {
 export function evaluateDiagnosis(
   submission: DiagnosisSubmission,
   answerKey: DiagnosisAnswerKey,
+  /** The challenge's own investigation hints, used instead of the generic ones when given. */
+  investigationHints?: readonly string[],
 ): EvaluationResult {
   const evidenceSummary = summarizeEvidence(submission);
 
   if (submission.rootCauseId !== answerKey.correctRootCauseId) {
-    const hints = [...GENERIC_HINTS];
+    const hints = [...(investigationHints ?? GENERIC_HINTS)];
     if (evidenceSummary.network === 0) {
       hints.push(
         "All of your evidence comes from server logs. The Network tab shows what the browser actually sent and received.",

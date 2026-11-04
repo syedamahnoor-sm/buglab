@@ -29,6 +29,8 @@ export interface DiagnosisHandlerOptions {
    * null for the development fallback. See origin.ts.
    */
   appOrigin: string | null;
+  /** A challenge's own hints for incorrect diagnoses; without them the evaluator's generic hints are used. */
+  investigationHints?: (challengeId: string) => readonly string[] | undefined;
 }
 
 interface RouteContext {
@@ -167,7 +169,7 @@ export function createDiagnosisHandler(options: DiagnosisHandlerOptions) {
         options.ipSubmissions.increment(ipKey);
       }
 
-      const result = evaluateDiagnosis(validation.value, challenge.answerKey);
+      const result = evaluateDiagnosis(validation.value, challenge.answerKey, options.investigationHints?.(challengeId));
       if (result.status === "incorrect") {
         const updated = options.wrongAttempts.increment(attemptKey);
         return respond(200, { ...result, attempts: toAttemptStatus(updated) }, headers);

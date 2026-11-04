@@ -105,11 +105,11 @@ describe("sorting", () => {
 describe("facets from the real catalog", () => {
   test("categories appear only when they have challenges, with their counts, in taxonomy order", () => {
     assert.deepEqual(categoryCounts(all), [
-      { id: "authentication", label: "Authentication", count: 2 },
-      { id: "api", label: "APIs", count: 1 },
-      { id: "frontend", label: "Frontend", count: 1 },
+      { id: "authentication", label: "Authentication & Authorization", count: 2 },
+      { id: "api", label: "APIs & Backend", count: 1 },
+      { id: "frontend", label: "Frontend & React", count: 1 },
     ]);
-    assert.deepEqual(categoryCounts([c001]), [{ id: "authentication", label: "Authentication", count: 1 }]);
+    assert.deepEqual(categoryCounts([c001]), [{ id: "authentication", label: "Authentication & Authorization", count: 1 }]);
     assert.deepEqual(categoryCounts([]), []);
   });
 

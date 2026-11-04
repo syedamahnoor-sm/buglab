@@ -8,7 +8,7 @@ import type { ChallengeSummary, Difficulty, WorkspaceScenario } from "./workspac
 
 export type PublicationStatus = "draft" | "published" | "archived";
 
-export type CategoryId = "authentication" | "api" | "frontend" | "database" | "performance" | "infrastructure";
+export type CategoryId = "authentication" | "api" | "frontend" | "database" | "security" | "performance";
 
 export interface CategoryDefinition {
   id: CategoryId;
