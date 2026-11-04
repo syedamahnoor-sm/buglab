@@ -39,6 +39,17 @@ const fixture = (id: string, number: string, title: string): ChallengeSummary =>
 
 const challenge = challenge001.challenge;
 
+/** The "Available challenges" section, where the cards are. */
+function cardSection(markup: string): string {
+  const section = markup.match(/<section aria-labelledby="available-challenges-heading"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(section, "has an Available challenges section");
+  return section;
+}
+
+/** Card links: [aria-labelledby, href] for each, in order. */
+const cardLinks = (markup: string) =>
+  [...cardSection(markup).matchAll(/<a aria-labelledby="([^"]+)"[^>]* href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+
 describe("/challenges", () => {
   test("renders the library with exactly the catalog's entry for Challenge 001", () => {
     assert.equal(renderPage(), renderLibrary([{ challenge, href: "/challenges/challenge-001" }]));
@@ -47,7 +58,7 @@ describe("/challenges", () => {
   test("has a clear heading, an introduction and the challenge count", () => {
     const markup = renderPage();
     assert.match(markup, /<main aria-labelledby="challenge-library-heading"/);
-    assert.match(markup, /<h1 id="challenge-library-heading"[^>]*>Challenge Library<\/h1>/);
+    assert.match(markup, /<h1 id="challenge-library-heading"[^>]*>Every bug has a story\.<\/h1>/);
     assert.ok(markup.includes("diagnose the root cause"));
     assert.ok(markup.includes(">1 challenge available<"));
     assert.equal(markup.match(/<h1\b/g)?.length, 1, "one page heading");
@@ -56,8 +67,8 @@ describe("/challenges", () => {
   test("shows Challenge 001 as the only card, linking to its own workspace route", () => {
     const markup = renderPage();
     assert.equal(markup.match(/<article\b/g)?.length, 1);
-    assert.equal(markup.match(/<a\b/g)?.length, 1);
-    assert.match(markup, /<a aria-labelledby="challenge-card-challenge-001-title"[^>]* href="\/challenges\/challenge-001"/);
+    assert.equal(cardSection(markup).match(/<a\b/g)?.length, 1);
+    assert.deepEqual(cardLinks(markup), [["challenge-card-challenge-001-title", "/challenges/challenge-001"]]);
     for (const text of [challenge.title, challenge.incident, `Challenge ${challenge.number}`]) {
       assert.ok(markup.includes(text), text);
     }
@@ -78,35 +89,53 @@ describe("ChallengeLibrary", () => {
   test("renders one linked card per entry, in the order given", () => {
     const markup = renderLibrary(entries);
     assert.ok(markup.includes(">3 challenges available<"));
-    assert.equal(markup.match(/<li><a\b/g)?.length, 3, "one list item per card");
+    assert.equal(cardSection(markup).match(/<li><a\b/g)?.length, 3, "one list item per card");
     assert.equal(markup.match(/<article\b/g)?.length, 3);
-    const titles = [...markup.matchAll(/<h2 id="[^"]+"[^>]*>([^<]+)</g)].map(([, title]) => title);
+    const titles = [...markup.matchAll(/<h3 id="challenge-card-[^"]+"[^>]*>([^<]+)</g)].map(([, title]) => title);
     assert.deepEqual(titles, ["Fixture Alpha", "Fixture Beta", "Fixture Gamma"]);
-    const links = [...markup.matchAll(/<a aria-labelledby="([^"]+)"[^>]* href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+    const links = cardLinks(markup);
     assert.deepEqual(links, [
       ["challenge-card-fixture-a-title", "/play/a"],
       ["challenge-card-fixture-b-title", "/play/b"],
       ["challenge-card-fixture-c-title", "/play/c"],
     ]);
-    for (const [titleId] of links) assert.match(markup, new RegExp(`<h2 id="${titleId}"`), "link names resolve");
+    for (const [titleId] of links) assert.match(markup, new RegExp(`<h3 id="${titleId}"`), "link names resolve");
   });
 
-  test("lays the cards out in a responsive grid, not a fixed single column", () => {
-    assert.match(renderLibrary(entries), /<ul aria-labelledby="challenge-library-heading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">/);
+  test("pairs several cards on wide screens, and lays each card out by its own width", () => {
+    const markup = renderLibrary(entries);
+    assert.match(markup, /<ul aria-labelledby="available-challenges-heading" class="grid gap-4 lg:grid-cols-2">/);
+    assert.equal(markup.match(/<article [^>]*class="@container /g)?.length, 3, "each card is a size container");
   });
 
   test("each card is a single keyboard-focusable link with a visible focus style and no nested controls", () => {
     const markup = renderLibrary(entries);
-    assert.doesNotMatch(markup, /<(button|input|select|textarea|form)\b|tabindex="-/);
-    for (const [, link] of markup.matchAll(/<a\b([^>]*)>/g)) assert.match(link, /focus-visible:outline-accent/);
+    const cards = cardSection(markup);
+    assert.doesNotMatch(markup, /<(button|input|select|textarea|form)\b/);
+    assert.doesNotMatch(cards.slice(cards.indexOf("<ul")), /tabindex=/, "cards add no extra tab stops");
+    for (const [, link] of cards.matchAll(/<a\b([^>]*)>/g)) {
+      assert.match(link, /focus-visible:outline-accent/);
+      assert.match(link, /\bgroup\b/, "drives the card's hover and focus styles");
+    }
     for (const [, inner] of markup.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/g)) assert.doesNotMatch(inner, /<a\b/);
+  });
+
+  test("gives a single card the full column width", () => {
+    const markup = renderLibrary(entries.slice(0, 1));
+    assert.match(markup, /<ul aria-labelledby="available-challenges-heading" class="grid gap-4">/);
+  });
+
+  test("makes Open investigation the card link's call to action", () => {
+    const cards = cardSection(renderLibrary(entries));
+    assert.equal(cards.match(/>Open investigation</g)?.length, 3);
+    assert.equal(cards.match(/class="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent /g)?.length, 3);
   });
 
   test("shows an empty message, not placeholder cards, when there are no entries", () => {
     const markup = renderLibrary([]);
     assert.ok(markup.includes(">0 challenges available<"));
     assert.ok(markup.includes("No challenges are available yet."));
-    assert.doesNotMatch(markup, /<(article|ul|a)\b/);
+    assert.doesNotMatch(cardSection(markup), /<(article|ul|a)\b/);
   });
 });
 
@@ -137,7 +166,14 @@ describe("/challenges: public data only", () => {
 
   test("the library component is a server component that reads no challenge data itself", () => {
     const library = source("components/challenge/ChallengeLibrary.tsx");
-    assert.deepEqual(imports(library), ["next/link", "@/types/workspace", "./ChallengeCard"]);
+    assert.deepEqual(imports(library), [
+      "next/link",
+      "@/components/layout/AppHeader",
+      "@/components/layout/SkipLinks",
+      "@/components/ui/icons",
+      "@/types/workspace",
+      "./ChallengeCard",
+    ]);
     assert.doesNotMatch(library, /use client/);
   });
 

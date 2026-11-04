@@ -39,13 +39,15 @@ describe("ChallengeCard", () => {
     // Everything visible is accounted for, so no spoiler can slip in.
     const expected = [
       `Challenge ${challenge.number}`,
-      difficultyDisplay[challenge.difficulty].label,
       challenge.title,
-      "Incident",
+      "Incident report",
       challenge.incident,
-      ...challenge.tags,
-      "Estimated time:",
+      "Difficulty",
+      difficultyDisplay[challenge.difficulty].label,
+      "Est. time",
       `~${challenge.estimatedMinutes} min`,
+      "Topics",
+      ...challenge.tags,
     ].join(" ");
     assert.equal(visibleText(render(challenge)), expected);
   });
@@ -92,9 +94,19 @@ describe("ChallengeCard", () => {
     });
   });
 
+  test("shows an optional action after the metadata and can use a lower heading level", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ChallengeCard, { challenge, titleAs: "h3", action: createElement("span", null, "Open investigation") }),
+    );
+    assert.match(markup, new RegExp(`<h3 id="challenge-card-${challenge.id}-title"`));
+    assert.doesNotMatch(markup, /<h2\b/);
+    assert.match(markup, /<\/dl><div class="mt-auto"><span>Open investigation<\/span><\/div>/);
+    assert.doesNotMatch(render(challenge), /Open investigation|mt-auto/, "no action unless one is given");
+  });
+
   test("depends only on public types and shared display code", () => {
     const card = readFileSync(new URL("../../src/components/challenge/ChallengeCard.tsx", import.meta.url), "utf8");
     const imports = [...card.matchAll(/from "([^"]+)"/g)].map(([, from]) => from);
-    assert.deepEqual(imports, ["@/components/ui/Badge", "@/types/workspace", "./difficulty"]);
+    assert.deepEqual(imports, ["react", "@/components/ui/Badge", "@/components/ui/icons", "@/types/workspace", "./difficulty"]);
   });
 });

@@ -16,7 +16,7 @@ export function ChallengeWorkspacePage({ scenario }: ChallengeWorkspacePageProps
   return (
     <>
       <SkipLinks />
-      <AppHeader />
+      <AppHeader current="workspace" />
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
         {/*
           TEMPORARY: investigationStarted is fixed to true, which keeps today's
