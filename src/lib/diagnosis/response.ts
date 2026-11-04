@@ -38,7 +38,7 @@ function isFieldError(value: unknown): value is DiagnosisFieldError {
   );
 }
 
-function isFeedback(value: unknown): value is DiagnosisFeedback {
+export function isFeedback(value: unknown): value is DiagnosisFeedback {
   return (
     isRecord(value) &&
     isString(value.headline) &&
@@ -51,7 +51,7 @@ function isFeedback(value: unknown): value is DiagnosisFeedback {
   );
 }
 
-function isAttemptStatus(value: unknown): value is AttemptStatus {
+export function isAttemptStatus(value: unknown): value is AttemptStatus {
   return (
     isRecord(value) &&
     isNumber(value.used) &&
