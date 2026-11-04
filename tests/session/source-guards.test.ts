@@ -37,9 +37,11 @@ describe("session module: source guards", () => {
     assert.deepEqual(sessionFiles.map(name).sort(), [
       "src/server/session/attempt-window.ts",
       "src/server/session/cookie.ts",
+      "src/server/session/diagnosis-handler.ts",
       "src/server/session/expiry.ts",
       "src/server/session/handlers.ts",
       "src/server/session/memory-store.ts",
+      "src/server/session/request-guards.ts",
       "src/server/session/request-hash.ts",
       "src/server/session/service.ts",
       "src/server/session/snapshots.ts",
@@ -136,6 +138,110 @@ describe("session module: source guards", () => {
   test("the existing buglab_attempt cookie is not reused as the session identity", () => {
     for (const path of sessionFiles) {
       assert.doesNotMatch(read(path), /buglab_attempt|ATTEMPT_COOKIE/, name(path));
+    }
+  });
+});
+
+describe("diagnosis submission handler and composition: source guards", () => {
+  const handlerSource = withoutComments(read(join(SESSION_DIR, "diagnosis-handler.ts")));
+  const guardsSource = withoutComments(read(join(SESSION_DIR, "request-guards.ts")));
+  const handlersSource = withoutComments(read(join(SESSION_DIR, "handlers.ts")));
+  const servicesPath = join(ROOT, "src/server/app-services.ts");
+
+  test("the handler is not a second evaluator, validator, attempt store or limiter: it delegates to the service", () => {
+    assert.doesNotMatch(handlerSource, /evaluateDiagnosis|validateDiagnosisSubmission|createDefaultRegistry|MemoryStore|new FixedWindowLimiter|new Map|new Set/);
+    assert.doesNotMatch(handlerSource, /\.record\(|\.touch\(|\.start\(|\.restart\(|\.find\(|\.list\(/, "it never calls a store");
+    assert.match(handlerSource, /deps\.service\.submitDiagnosis\(/);
+    // The limiter is injected, and only its type is imported.
+    assert.match(handlerSource, /import type \{ FixedWindowLimiter \}/);
+  });
+
+  test("the handler reads no field of the request body: identity and completion cannot come from it", () => {
+    assert.doesNotMatch(handlerSource, /\bbody\s*\.\s*\w|\bbody\s*\[/);
+    assert.doesNotMatch(handlerSource, /\.completed|completedAt|learnerId|sessionId|tokenHash/);
+  });
+
+  test("the handler imports nothing of the live diagnosis endpoint except the pure client-IP reader, the registry type and the limiter type", () => {
+    const imports = [...handlerSource.matchAll(/from "([^"]+)"/g)].map((match) => match[1]).filter((path) => path.startsWith("@/server/diagnosis"));
+    assert.deepEqual(imports.sort(), ["@/server/diagnosis/attempt-limiter", "@/server/diagnosis/client-ip", "@/server/diagnosis/registry"]);
+    assert.doesNotMatch(handlerSource, /server\/diagnosis\/handler/);
+  });
+
+  test("the same-origin policy is written once, in request-guards.ts: neither handler file compares origins itself", () => {
+    assert.match(guardsSource, /export function isSameOrigin/);
+    assert.match(guardsSource, /sec-fetch-site/);
+    for (const [file, source] of [["handlers.ts", handlersSource], ["diagnosis-handler.ts", handlerSource]]) {
+      assert.doesNotMatch(source, /sec-fetch-site|new URL\(origin\)|\.origin\s*===|function isSameOrigin|headers\.get\("origin"\)/i, file);
+    }
+  });
+
+  test("the guards keep the strict policy: whole-origin comparison, and a missing Origin needs Fetch Metadata", () => {
+    assert.match(guardsSource, /claimed\.origin === new URL\(request\.url\)\.origin/);
+    assert.match(guardsSource, /claimed\.origin !== "null"/);
+    assert.match(guardsSource, /request\.headers\.get\("sec-fetch-site"\) === "same-origin"/);
+    assert.doesNotMatch(guardsSource, /\.host\b|headers\.get\("host"\)/, "the Host header and the bare host are never compared");
+  });
+
+  test("the origin compatibility requirement is written down where the policy lives and where the handler is built", () => {
+    const guards = read(join(SESSION_DIR, "request-guards.ts"));
+    const handler = read(join(SESSION_DIR, "diagnosis-handler.ts"));
+
+    assert.match(guards, /COMPATIBILITY REQUIREMENT BEFORE ANYTHING IS MOUNTED/);
+    assert.match(guards, /not on any branch/);
+    assert.match(guards, /ONE policy/);
+    assert.match(handler, /unpublished change/);
+    assert.match(handler, /compatibility requirement at the top of request-guards\.ts/);
+  });
+
+  test("nothing is mounted: the only route under src/app/api is the live diagnosis route", () => {
+    const routes = sourceFiles(join(ROOT, "src/app/api")).map(name);
+    assert.deepEqual(routes, ["src/app/api/challenges/[challengeId]/diagnosis/route.ts"]);
+  });
+
+  test("nothing but a test imports the composition root: no route, page, component, engine or other server code", () => {
+    for (const path of sourceFiles(join(ROOT, "src"))) {
+      if (path === servicesPath) continue;
+      assert.doesNotMatch(read(path), /app-services/, name(path));
+    }
+  });
+
+  test("the live diagnosis files do not import the session module, the guards or the composition root", () => {
+    for (const path of sourceFiles(join(ROOT, "src/server/diagnosis"))) {
+      assert.doesNotMatch(read(path), /server\/session|app-services|request-guards/, name(path));
+    }
+    const route = read(join(ROOT, "src/app/api/challenges/[challengeId]/diagnosis/route.ts"));
+    assert.doesNotMatch(route, /server\/session|app-services|request-guards/);
+  });
+
+  test("the composition root is server-only, and is not evaluated into a store or a registry on import", () => {
+    const source = withoutComments(read(servicesPath));
+
+    assert.match(source.trimStart(), /^import "server-only";/);
+    // Anything built at the top level would be built when the module is imported, including during `next build`.
+    assert.doesNotMatch(source, /^(export[ \t]+)?(const|let|var)[ \t]+\w+([ \t]*:[^=\n]+)?[ \t]*=[ \t]*(await[ \t]+)?(getAppServices|createAppServices|createDefaultChallengeRegistry|getSharedState|new[ \t]+MemoryStore|new[ \t]+FixedWindowLimiter)[ \t]*\(/m);
+    assert.doesNotMatch(source, /^(getAppServices|createAppServices|getSharedState)\s*\(/m);
+  });
+
+  test("the composition root says, in its own header, that the default store is for development and tests only", () => {
+    const header = read(servicesPath);
+
+    assert.match(header, /THE STORE IS DEVELOPMENT AND TEST ONLY/);
+    assert.match(header, /NOT durable/);
+    assert.match(header, /production, serverless or multi-instance/);
+    assert.match(header, /NOTHING MOUNTS THIS/);
+  });
+
+  test("the composition root keeps no server state of its own beyond the one documented global and one cached instance", () => {
+    const source = withoutComments(read(servicesPath));
+
+    assert.equal((source.match(/globalThis/g) ?? []).length, 2, "one read of the shared state and one type cast");
+    assert.match(source, /export const SHARED_STATE_KEY = "__buglabSharedServerState"/);
+    assert.doesNotMatch(source, /process\.env\.(?!BUGLAB_TRUSTED_PROXY_HOPS\b)/);
+  });
+
+  test("nothing in the new files logs, reads Math.random, or names the answer key", () => {
+    for (const source of [handlerSource, guardsSource, withoutComments(read(servicesPath))]) {
+      assert.doesNotMatch(source, /\bconsole\s*\.|Math\.random|answer-key|provisionalAnswerKey|challenge-001|correctRootCauseId/);
     }
   });
 });
