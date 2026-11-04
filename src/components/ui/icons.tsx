@@ -130,3 +130,85 @@ export function ArrowRightIcon(props: IconProps) {
     </BaseIcon>
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <circle cx="7" cy="7" r="4.25" />
+      <path d="m10.25 10.25 3.25 3.25" />
+    </BaseIcon>
+  );
+}
+
+export function SlidersIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7" />
+      <circle cx="11" cy="4.5" r="1.5" />
+      <circle cx="5" cy="11.5" r="1.5" />
+    </BaseIcon>
+  );
+}
+
+export function StarIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m8 2.25 1.7 3.6 3.9.5-2.85 2.7.7 3.9L8 11.1l-3.45 1.85.7-3.9L2.4 6.35l3.9-.5Z" />
+    </BaseIcon>
+  );
+}
+
+export function GridIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" />
+      <rect x="9" y="2.5" width="4.5" height="4.5" rx="1" />
+      <rect x="2.5" y="9" width="4.5" height="4.5" rx="1" />
+      <rect x="9" y="9" width="4.5" height="4.5" rx="1" />
+    </BaseIcon>
+  );
+}
+
+export function PlugIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M5.5 2.5v3M10.5 2.5v3M4 5.5h8v2.5a4 4 0 0 1-8 0Z M8 12v1.75" />
+    </BaseIcon>
+  );
+}
+
+export function BrowserIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
+      <path d="M1.75 5.75h12.5M4 4.25h.01M6 4.25h.01" />
+    </BaseIcon>
+  );
+}
+
+export function DatabaseIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <ellipse cx="8" cy="3.75" rx="5" ry="1.75" />
+      <path d="M3 3.75v8.5c0 .97 2.24 1.75 5 1.75s5-.78 5-1.75v-8.5M3 8c0 .97 2.24 1.75 5 1.75S13 8.97 13 8" />
+    </BaseIcon>
+  );
+}
+
+export function GaugeIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M2.5 11a5.5 5.5 0 1 1 11 0M8 11l2.5-3" />
+    </BaseIcon>
+  );
+}
+
+export function ServerIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <rect x="2" y="2.5" width="12" height="4.5" rx="1" />
+      <rect x="2" y="9" width="12" height="4.5" rx="1" />
+      <path d="M4.5 4.75h.01M4.5 11.25h.01" />
+    </BaseIcon>
+  );
+}

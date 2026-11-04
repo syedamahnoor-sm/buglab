@@ -1,24 +1,22 @@
 /*
  * Public challenge catalog: the challenges a learner can open, and the
- * learner-visible scenario for each. The single place pages look challenges
- * up, so a future public registry only has to replace this module.
+ * learner-visible scenario for each. The single place pages, the proxy and
+ * route generation look challenges up. Challenges are registered in
+ * src/data/catalog; only published ones are visible here.
  *
  * Public data only. Answer keys and other evaluation data stay server-side in
  * *.server.ts modules and must never be imported here. Importing this module
  * from a client component would bundle every scenario, so call it from server
  * components and pass the result down as props.
  */
-import { challenge001 } from "@/data/challenge-001";
+import { REGISTERED_CHALLENGES } from "@/data/catalog";
+import { byCatalogOrder, createCatalog } from "@/lib/catalog/catalog";
+import type { PublicChallenge } from "@/types/catalog";
 import type { ChallengeSummary, WorkspaceScenario } from "@/types/workspace";
 
-const SCENARIOS: readonly WorkspaceScenario[] = [challenge001];
+const catalog = createCatalog(REGISTERED_CHALLENGES);
 
-const scenariosById = new Map<string, WorkspaceScenario>();
-for (const scenario of SCENARIOS) {
-  const { id } = scenario.challenge;
-  if (scenariosById.has(id)) throw new Error(`Duplicate challenge ID in the catalog: ${id}`);
-  scenariosById.set(id, scenario);
-}
+const SUMMARY_FIELDS = ["id", "number", "title", "incident", "difficulty", "completion", "tags", "estimatedMinutes"] as const;
 
 /**
  * A new array of the summaries in catalog order: by challenge number compared
@@ -26,23 +24,33 @@ for (const scenario of SCENARIOS) {
  * the input order.
  */
 export function sortChallengeSummaries(summaries: readonly ChallengeSummary[]): ChallengeSummary[] {
-  return [...summaries].sort(
-    (a, b) =>
-      a.number.localeCompare(b.number, "en", { numeric: true }) ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  );
+  return [...summaries].sort(byCatalogOrder);
 }
 
 /**
- * Summaries of every available challenge, in catalog order. Each call returns
+ * Summaries of every published challenge, in catalog order. Each call returns
  * new copies (tags included), so a caller changing one cannot affect the
  * catalog or any other caller.
  */
 export function listChallengeSummaries(): ChallengeSummary[] {
-  return sortChallengeSummaries(SCENARIOS.map((scenario) => structuredClone(scenario.challenge)));
+  return catalog.listPublished().map((challenge) => {
+    const summary = {} as Record<string, unknown>;
+    for (const field of SUMMARY_FIELDS) summary[field] = challenge[field];
+    return summary as unknown as ChallengeSummary;
+  });
 }
 
-/** The public scenario for a challenge ID (exact match), or null if there is none. */
+/** Published challenges with their listing metadata, for discovery. Public data only. */
+export function listPublishedChallenges(): PublicChallenge[] {
+  return catalog.listPublished();
+}
+
+/** The public scenario for a published challenge ID (exact match), or null if there is none. */
 export function getPublicScenario(challengeId: string): WorkspaceScenario | null {
-  return scenariosById.get(challengeId) ?? null;
+  return catalog.getPublishedScenario(challengeId);
+}
+
+/** The full inventory, drafts and archived included. Server code for the admin area only. */
+export function getCatalogInventory() {
+  return catalog.inventory();
 }

@@ -127,8 +127,8 @@ describe("challenge catalog: public data only", () => {
     ]);
   });
 
-  test("imports only public scenario data and types", () => {
-    assert.deepEqual(moduleSpecifiers(source), ["@/data/challenge-001", "@/types/workspace"]);
+  test("imports only the registration point, the catalog builder and types", () => {
+    assert.deepEqual(moduleSpecifiers(source), ["@/data/catalog", "@/lib/catalog/catalog", "@/types/catalog", "@/types/workspace"]);
     assert.doesNotMatch(source, FORBIDDEN_CODE);
   });
 
