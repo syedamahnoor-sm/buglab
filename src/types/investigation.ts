@@ -20,8 +20,11 @@ export interface NetworkRequest {
   durationMs: number;
   /** Scenario file that triggered the request, if it is part of the scenario. */
   initiator?: string;
-  /** ID of the server log line written for this request. */
-  serverLogId: string;
+  /**
+   * ID of the server log line written for this request, if it has one. Several
+   * requests may share a log line.
+   */
+  serverLogId?: string;
   requestHeaders: HttpHeader[];
   requestBody?: string;
   responseHeaders: HttpHeader[];

@@ -44,7 +44,7 @@ function measure(d: Draft): Record<keyof typeof LIMITS, number> {
     statusTextLength: max(s.network.map((r) => r.statusText.length)),
     idLength: max([
       ...s.logs.map((l) => l.id.length),
-      ...s.network.flatMap((r) => [r.id.length, r.serverLogId.length]),
+      ...s.network.flatMap((r) => [r.id.length, r.serverLogId?.length ?? 0]),
       ...s.rootCauseOptions.map((o) => o.id.length),
       d.evaluation.correctRootCauseId.length,
       ...d.evaluation.keyObservations.map((k) => k.id.length),

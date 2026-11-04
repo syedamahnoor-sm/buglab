@@ -3,7 +3,9 @@ import { Panel } from "@/components/ui/Panel";
 import { PanelExpandToggle, type PanelLayoutState } from "@/components/ui/PanelExpandToggle";
 import { TabList, getTabIds, type TabDefinition } from "@/components/ui/TabList";
 import { TerminalIcon } from "@/components/ui/icons";
+import { findByData } from "@/lib/dom";
 import { getEvidenceId, type EvidenceSummary } from "@/lib/evidence";
+import { requestIdsByLogId } from "@/lib/log-links";
 import type { EvidenceItem, EvidenceRef, NetworkRequest } from "@/types/investigation";
 import type { LogEntry } from "@/types/workspace";
 import { LogsView } from "./logs/LogsView";
@@ -56,10 +58,8 @@ export function InvestigationConsole({
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
-  const requestIdByLogId = useMemo(
-    () => new Map(network.map((request) => [request.serverLogId, request.id])),
-    [network],
-  );
+  const requestIdByLogId = useMemo(() => requestIdsByLogId(network), [network]);
+  const logIds = useMemo(() => new Set(logs.map((entry) => entry.id)), [logs]);
 
   const tabs: TabDefinition<ConsoleTab>[] = [
     { id: "logs", label: "Logs", badge: <CountBadge>{logs.length}</CountBadge> },
@@ -79,7 +79,7 @@ export function InvestigationConsole({
   // Move keyboard focus to the newly selected row once it has rendered.
   function focusOption(id: string) {
     requestAnimationFrame(() => {
-      rootRef.current?.querySelector<HTMLElement>(`[data-option-id="${id}"]`)?.focus();
+      findByData(rootRef.current, "data-option-id", id)?.focus();
     });
   }
 
@@ -163,6 +163,7 @@ export function InvestigationConsole({
         <div {...panelProps("network")}>
           <NetworkView
             requests={network}
+            logIds={logIds}
             incidentDate={incidentDate}
             selectedId={selectedRequestId}
             onSelect={setSelectedRequestId}

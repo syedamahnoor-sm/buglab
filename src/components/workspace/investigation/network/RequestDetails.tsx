@@ -11,6 +11,8 @@ type DetailTab = "headers" | "payload" | "response";
 
 interface RequestDetailsProps {
   request: NetworkRequest;
+  /** The log line this request links to, when it has one that exists. */
+  logId: string | undefined;
   incidentDate: string;
   canOpenFile: (path: string) => boolean;
   collected: boolean;
@@ -35,6 +37,7 @@ function GeneralRow({ label, children }: { label: string; children: ReactNode })
 
 export function RequestDetails({
   request,
+  logId,
   incidentDate,
   canOpenFile,
   collected,
@@ -128,9 +131,13 @@ export function RequestDetails({
               )}
             </GeneralRow>
             <GeneralRow label="Server log">
-              <button type="button" onClick={() => onShowLog(request.serverLogId)} className={linkClass}>
-                View in Logs ({request.serverLogId})
-              </button>
+              {logId ? (
+                <button type="button" onClick={() => onShowLog(logId)} className={linkClass}>
+                  View in Logs ({logId})
+                </button>
+              ) : (
+                <span className="text-subtle">None</span>
+              )}
             </GeneralRow>
           </dl>
         </section>
