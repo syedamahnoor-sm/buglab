@@ -38,6 +38,7 @@ describe("session module: source guards", () => {
       "src/server/session/attempt-window.ts",
       "src/server/session/cookie.ts",
       "src/server/session/expiry.ts",
+      "src/server/session/handlers.ts",
       "src/server/session/memory-store.ts",
       "src/server/session/request-hash.ts",
       "src/server/session/service.ts",
