@@ -22,9 +22,8 @@
  *   1. An Origin header that is PRESENT is validated, always: it must be exactly the expected origin
  *      (same scheme, host and effective port, no credentials, path, query or fragment), and an
  *      invalid, malformed or opaque ("null") value is refused whatever Sec-Fetch-Site says.
- *      `Sec-Fetch-Site`, when present, must be `same-origin` as well. Any `@` in the value is refused
- *      here too, which closes the empty-credentials form (`https://@host`) that normalizes away in
- *      the shared helper until Syeda's fix for it lands.
+ *      `Sec-Fetch-Site`, when present, must be `same-origin` as well. Credentials, empty ones
+ *      (`https://@host`) included, are refused by the shared helper itself.
  *   2. With NO Origin header (an empty value counts as none), only `Sec-Fetch-Site: same-origin`
  *      passes. A headerless write is never allowed, unlike the shared helper's own missing-header rule
  *      (which exists for the live diagnosis endpoint's curl and monitor clients and is NOT changed
@@ -69,9 +68,8 @@ export function isSameOrigin(request: Request, appOrigin: string | null = null):
   // Metadata saying same-origin passes. A page cannot forge Sec-Fetch-Site, so this is not a free pass.
   if (!origin) return request.headers.get("sec-fetch-site") === "same-origin";
 
-  // A serialized origin is scheme://host[:port] and contains no `@`. This also catches the empty
-  // credential forms that `new URL` silently drops (`https://@host`, `https://:@host`).
-  if (origin.includes("@")) return false;
+  // Credentials in an Origin, empty ones included (`https://@host`), are refused by the shared helper's
+  // normalizeOrigin. They are not checked again here; the tests in this module and in handlers pin it.
 
   // Unconfigured: the request's own URL origin, never the Host header.
   return isSameOriginRequest(request, appOrigin ?? new URL(request.url).origin);

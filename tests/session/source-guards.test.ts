@@ -194,11 +194,12 @@ describe("diagnosis submission handler and composition: source guards", () => {
     assert.match(guardsSource, /import \{ isSameOriginRequest \} from "@\/server\/diagnosis\/origin"/);
     assert.match(guardsSource, /isSameOriginRequest\(request, appOrigin \?\? new URL\(request\.url\)\.origin\)/);
     assert.doesNotMatch(guardsSource, /new URL\(origin\)|claimed\b|normalizeOrigin|parseAppOrigin/, "the guards do not parse or compare origins themselves");
+    assert.doesNotMatch(guardsSource, /new URL\(request\.url\)\.(host|hostname)\b/, "the request URL contributes an origin, never a bare host");
     assert.doesNotMatch(guardsSource, /\.host\b|headers\.get\("host"\)|x-forwarded/i, "the Host and forwarded headers are never consulted");
     // A headerless write is never allowed: with no Origin only the browser's own Fetch Metadata passes.
     assert.match(guardsSource, /if \(!origin\) return request\.headers\.get\("sec-fetch-site"\) === "same-origin"/);
-    // Any `@` is refused, which closes the empty-credentials form the shared helper normalizes away.
-    assert.match(guardsSource, /origin\.includes\("@"\)/);
+    // Credentials (empty ones too) are the shared helper's job: the guards do not re-implement that check.
+    assert.doesNotMatch(guardsSource, /includes\("@"\)|username|password/);
   });
 
   test("the session-write origin policy is written down where it lives and where the handler is built, and its old caveats are gone", () => {
