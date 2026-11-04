@@ -1,0 +1,1041 @@
+/*
+ * Landing-page motion and lighting, imported by /welcome only.
+ *
+ * Every class and keyframe is namespaced "lp-" so nothing reaches the
+ * workspace. This is plain CSS rather than a CSS Module because next.config's
+ * Turbopack rule loads every *.css file as global CSS, so module class names
+ * would not resolve. Components use the names through styles.ts. Only the
+ * global colour tokens from globals.css are read here.
+ *
+ * Rules of the system:
+ * - one easing curve and three durations;
+ * - only opacity and transform animate, except the replay's typed text;
+ * - prefers-reduced-motion removes every movement but keeps final states;
+ * - scroll-linked effects are an enhancement: without support they show
+ *   their finished state.
+ */
+
+@property --lp-cta-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.lp-root {
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 180ms;
+  --medium: 400ms;
+  --slow: 700ms;
+}
+
+/* ---------------------------------------------------------------- hero -- */
+
+.lp-headline {
+  background: linear-gradient(180deg, var(--foreground) 35%, var(--muted));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (forced-colors: active) {
+  .lp-headline {
+    background: none;
+    color: CanvasText;
+  }
+}
+
+.lp-aurora {
+  background:
+    radial-gradient(ellipse 55% 45% at 50% -5%, var(--accent), transparent 70%),
+    radial-gradient(ellipse 30% 30% at 85% 10%, var(--info), transparent 70%);
+  opacity: 0.2;
+  animation: lp-breathe 14s var(--ease) infinite alternate;
+}
+
+@keyframes lp-breathe {
+  from {
+    opacity: 0.16;
+  }
+  to {
+    opacity: 0.24;
+  }
+}
+
+/* Inline SVG noise: takes the flat edge off the gradients. */
+.lp-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* The horizon the replay rises from. */
+.lp-horizon {
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow: 0 0 24px 2px var(--accent);
+  opacity: 0.5;
+}
+
+/* Log field: columns of real log lines drifting upward behind the hero. The
+   outer mask fades the edges, the inner one clears space for the headline. */
+.lp-log-field {
+  mask-image: linear-gradient(180deg, transparent, black 25%, black 65%, transparent);
+}
+
+/* Stacked layouts keep the centre clear; the split hero keeps the left clear. */
+.lp-log-field-inner {
+  mask-image: radial-gradient(ellipse 60% 45% at 50% 35%, transparent 40%, black 90%);
+}
+
+@media (min-width: 1024px) {
+  .lp-log-field-inner {
+    mask-image: radial-gradient(ellipse 40% 60% at 24% 48%, transparent 40%, black 88%);
+  }
+}
+
+.lp-log-track {
+  animation: lp-drift var(--drift, 110s) linear infinite;
+}
+
+@keyframes lp-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
+}
+
+.lp-log-line {
+  position: relative;
+}
+
+/* A flare is an overlay fading in and out, so only opacity animates. */
+.lp-flare::after {
+  content: "";
+  position: absolute;
+  inset: -1px -6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--danger), var(--accent));
+  opacity: 0;
+  animation: lp-flare 11s var(--ease) infinite;
+  animation-delay: var(--flare-delay, 0s);
+}
+
+@keyframes lp-flare {
+  0%,
+  86%,
+  100% {
+    opacity: 0;
+  }
+  89% {
+    opacity: 0.35;
+  }
+  94% {
+    opacity: 0.12;
+  }
+}
+
+/* ------------------------------------------------------------ reveals -- */
+
+.lp-reveal {
+  transition:
+    opacity var(--slow) var(--ease),
+    transform var(--slow) var(--ease);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+.lp-reveal[data-reveal="pending"] {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+
+/* ------------------------------------------------------------- header -- */
+
+/* Static background; browsers with scroll timelines animate it below. */
+.lp-header {
+  background-color: color-mix(in srgb, var(--background) 85%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+
+/* --------------------------------------------------------- trace line -- */
+
+.lp-trace {
+  background: linear-gradient(180deg, transparent, var(--accent) 30%, var(--accent));
+  transform-origin: top center;
+}
+
+.lp-trace-pulse {
+  background: linear-gradient(180deg, transparent, var(--foreground), transparent);
+  animation: lp-travel 3.2s var(--ease) infinite;
+}
+
+@keyframes lp-travel {
+  from {
+    transform: translate3d(0, -100%, 0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(0, 300%, 0);
+    opacity: 0;
+  }
+}
+
+.lp-trace-node {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 0 18px 2px var(--accent);
+}
+
+@supports (animation-timeline: view()) {
+  .lp-trace {
+    animation: lp-draw linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 50%;
+  }
+
+  /* The replay frame tilts back and settles flat as it scrolls into view. */
+  .lp-tilt {
+    animation: lp-settle linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 35%;
+  }
+
+  /* The header firms up once the page scrolls. */
+  .lp-header {
+    animation: lp-firm linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 160px;
+  }
+}
+
+@keyframes lp-draw {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes lp-settle {
+  from {
+    transform: perspective(1600px) rotateX(11deg) scale(0.95);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes lp-firm {
+  from {
+    background-color: color-mix(in srgb, var(--background) 55%, transparent);
+    border-color: transparent;
+  }
+  to {
+    background-color: color-mix(in srgb, var(--background) 88%, transparent);
+    border-color: var(--border);
+  }
+}
+
+/* --------------------------------------------------------------- CTAs -- */
+
+.lp-cta {
+  position: relative;
+  isolation: isolate;
+  transition:
+    transform var(--fast) var(--ease),
+    box-shadow var(--medium) var(--ease),
+    background-color var(--fast) var(--ease),
+    filter var(--fast) var(--ease);
+}
+
+.lp-cta:active {
+  transform: scale(0.98);
+}
+
+.lp-cta-primary:hover,
+.lp-cta-primary:focus-visible {
+  box-shadow: 0 10px 34px -10px var(--accent);
+}
+
+/* A sheen sweeps across the primary button once per hover. */
+.lp-cta-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.35) 50%, transparent 65%);
+  background-size: 250% 100%;
+  background-position: 150% 0;
+  pointer-events: none;
+}
+
+.lp-cta-primary:hover::after,
+.lp-cta-primary:focus-visible::after {
+  transition: background-position var(--slow) var(--ease);
+  background-position: -50% 0;
+}
+
+/* Secondary buttons get a light orbiting their border. */
+.lp-cta-secondary::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--lp-cta-angle), transparent 0 65%, var(--accent) 82%, transparent 95%);
+  mask:
+    linear-gradient(black, black) content-box,
+    linear-gradient(black, black);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--medium) var(--ease);
+  pointer-events: none;
+}
+
+.lp-cta-secondary:hover::before,
+.lp-cta-secondary:focus-visible::before {
+  opacity: 1;
+  animation: lp-orbit 2.8s linear infinite;
+}
+
+@keyframes lp-orbit {
+  to {
+    --lp-cta-angle: 360deg;
+  }
+}
+
+.lp-arrow {
+  transition: transform var(--fast) var(--ease);
+}
+
+.lp-cta:hover .lp-arrow,
+.lp-cta:focus-visible .lp-arrow {
+  transform: translate3d(2px, 0, 0);
+}
+
+.lp-link {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 0 1px;
+  transition: background-size var(--medium) var(--ease);
+}
+
+.lp-link:hover,
+.lp-link:focus-visible {
+  background-size: 100% 1px;
+}
+
+/* ---------------------------------------------------------- spotlight -- */
+
+/* Tiles glow where the pointer is; keyboard focus centres the glow. */
+.lp-spot {
+  position: relative;
+  isolation: isolate;
+  transition: border-color var(--medium) var(--ease);
+}
+
+.lp-spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), var(--accent), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--medium) var(--ease);
+  pointer-events: none;
+}
+
+.lp-spot:hover::before,
+.lp-spot:focus-within::before {
+  opacity: 0.09;
+}
+
+.lp-spot:hover,
+.lp-spot:focus-within {
+  border-color: var(--border-strong);
+}
+
+/* ------------------------------------------------------- keyboard tile -- */
+
+.lp-key {
+  transition:
+    background-color var(--medium) var(--ease),
+    border-color var(--medium) var(--ease),
+    color var(--medium) var(--ease),
+    transform var(--fast) var(--ease);
+  transition-delay: var(--key-delay, 0ms);
+}
+
+.lp-spot:hover .lp-key,
+.lp-spot:focus-within .lp-key {
+  background-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--foreground);
+  transform: translate3d(0, 1px, 0);
+}
+
+/* ------------------------------------------------------ server diagram -- */
+
+.lp-packet {
+  animation: lp-packet 3.6s var(--ease) infinite;
+}
+
+.lp-packet-back {
+  animation-delay: 1.8s;
+  animation-direction: reverse;
+}
+
+@keyframes lp-packet {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--travel, 100px), 0, 0);
+    opacity: 0;
+  }
+}
+
+/* -------------------------------------------------------------- replay -- */
+
+/* Paused (by the visitor, or because the replay is off screen) freezes every
+   animation inside the stage exactly where it is. */
+.lp-stage[data-paused] *,
+.lp-stage[data-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+/* Before the replay starts, and when a chapter is picked, every chapter is
+   shown in its final frame. */
+.lp-stage[data-static] *,
+.lp-stage[data-static] *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
+.lp-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: pre;
+  vertical-align: bottom;
+  max-width: 0;
+  animation: lp-type var(--type-duration, 900ms) steps(var(--chars, 20), end) forwards;
+  animation-delay: var(--type-delay, 0ms);
+}
+
+@keyframes lp-type {
+  to {
+    max-width: calc(var(--chars, 20) * 1ch + 1px);
+  }
+}
+
+.lp-appear {
+  opacity: 0;
+  animation: lp-appear var(--medium) var(--ease) forwards;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+@keyframes lp-appear {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-vanish {
+  animation: lp-vanish var(--fast) var(--ease) forwards;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+@keyframes lp-vanish {
+  to {
+    opacity: 0;
+    transform: translate3d(0, -6px, 0);
+  }
+}
+
+.lp-dim {
+  animation: lp-dim var(--medium) var(--ease) forwards;
+  animation-delay: var(--dim-delay, 1200ms);
+}
+
+@keyframes lp-dim {
+  to {
+    opacity: 0.22;
+  }
+}
+
+.lp-slide-in {
+  animation: lp-slide-in 520ms var(--ease) both;
+  animation-delay: var(--appear-delay, 300ms);
+}
+
+@keyframes lp-slide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-press {
+  animation: lp-press 500ms var(--ease) both;
+  animation-delay: var(--appear-delay, 900ms);
+}
+
+@keyframes lp-press {
+  0% {
+    transform: none;
+  }
+  40% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: none;
+    background-color: color-mix(in srgb, var(--success) 14%, transparent);
+    border-color: color-mix(in srgb, var(--success) 45%, transparent);
+    color: var(--success);
+  }
+}
+
+.lp-rise {
+  animation: lp-rise 640ms var(--ease) both;
+  animation-delay: var(--appear-delay, 200ms);
+}
+
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-fill {
+  transform-origin: left center;
+  animation: lp-fill var(--chapter-duration, 4s) linear forwards;
+}
+
+@keyframes lp-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.lp-caret {
+  animation: lp-blink 1s steps(1) infinite;
+}
+
+@keyframes lp-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------- hero scene -- */
+
+/* Layered debugging scene beside the headline. Its entrance and sequence
+   are CSS only, so it plays without JavaScript. */
+.lp-scene {
+  position: relative;
+}
+
+/* Waterfall bars grow from their start, one request after another. */
+.lp-grow {
+  transform-origin: left center;
+  animation: lp-grow 700ms var(--ease) both;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+@keyframes lp-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* A beam sweeps down the terminal while it "searches"... */
+.lp-scan {
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 22%, transparent), transparent);
+  opacity: 0;
+  animation: lp-scan 1300ms var(--ease) both;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+@keyframes lp-scan {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -100%, 0);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 400%, 0);
+  }
+}
+
+/* ...and the failed request lights up: the signal in the noise. It flares
+   red, then settles into a steady blue marker. */
+.lp-signal {
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  opacity: 0;
+  animation: lp-signal 1600ms var(--ease) both;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+.lp-signal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 10%, transparent));
+  opacity: 0;
+  animation: lp-signal-flare 1600ms var(--ease) both;
+  animation-delay: var(--appear-delay, 0ms);
+}
+
+@keyframes lp-signal {
+  0% {
+    opacity: 0;
+  }
+  25%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes lp-signal-flare {
+  0% {
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  /* As the hero scrolls away, its layers part at different depths. */
+  .lp-depth {
+    animation: lp-depth linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 80vh;
+  }
+
+  /* The horizon widens into the trace that leads to the replay. */
+  .lp-horizon {
+    animation: lp-horizon linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 60vh;
+  }
+}
+
+@keyframes lp-depth {
+  to {
+    transform: translate3d(0, calc(var(--depth, 1) * -28px), 0);
+    opacity: calc(1 - var(--depth, 1) * 0.12);
+  }
+}
+
+@keyframes lp-horizon {
+  from {
+    transform: scaleX(0.55);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 0.8;
+  }
+}
+
+/* ---------------------------------------------------- method timeline -- */
+
+/* Lit by default: browsers without scroll timelines, and reduced motion,
+   show every step. The cursor only exists where it can move. */
+.lp-method-span {
+  transform-origin: left center;
+}
+
+.lp-method-cursor {
+  display: none;
+}
+
+.lp-method-path-fill {
+  background: linear-gradient(to bottom, var(--accent), color-mix(in oklab, var(--accent) 40%, transparent));
+  transform-origin: top;
+}
+
+@supports (animation-timeline: view()) {
+  .lp-method {
+    view-timeline-name: --lp-method;
+  }
+
+  /* Below lg: the path fills, and each step lights up as it arrives. */
+  .lp-method-path-fill {
+    animation: lp-path-fill linear both;
+    animation-timeline: --lp-method;
+    animation-range: cover 15% cover 70%;
+  }
+
+  .lp-method-step {
+    animation: lp-lit linear both;
+    animation-timeline: view();
+    animation-range: entry 40% cover 40%;
+  }
+
+  /* lg: one cursor crosses the axis as the timeline scrolls up through the
+     middle of the screen (cover 25%-52%, matching SWEEP_FROM and
+     SWEEP_LENGTH in MethodTimeline). Each span draws as the cursor passes
+     over it; each step lights up when the cursor reaches it. */
+  @media (min-width: 64rem) {
+    .lp-method-cursor {
+      display: block;
+      animation: lp-sweep linear both;
+      animation-timeline: --lp-method;
+      animation-range: cover 25% cover 52%;
+    }
+
+    .lp-method-span {
+      animation: lp-draw-x linear both;
+      animation-timeline: --lp-method;
+      animation-range: cover var(--lit-from) cover var(--lit-to);
+    }
+
+    .lp-method-node,
+    .lp-method-step {
+      animation: lp-lit linear both;
+      animation-timeline: --lp-method;
+      animation-range: cover var(--lit-from) cover calc(var(--lit-from) + 3%);
+    }
+  }
+}
+
+@keyframes lp-sweep {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  96% {
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes lp-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes lp-path-fill {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes lp-lit {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------- instrument bench -- */
+
+/* The bench as a whole doesn't fade like other reveals: its pieces unfold. */
+.lp-bench.lp-reveal[data-reveal="pending"] {
+  opacity: 1;
+  transform: none;
+}
+
+.lp-unfold {
+  transition:
+    transform 1100ms var(--ease),
+    opacity 800ms var(--ease);
+  transition-delay: var(--unfold-delay, 0ms);
+}
+
+.lp-bench[data-reveal="pending"] .lp-unfold {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+
+@media (min-width: 64rem) {
+  .lp-bench[data-reveal="pending"] .lp-unfold {
+    opacity: var(--unfold-opacity, 1);
+    transform: var(--unfold-from);
+  }
+}
+
+/* ------------------------------------------------- case file, closing -- */
+
+/* The case number, set large: the hero headline's gradient, turned blue. */
+.lp-case-id {
+  background: linear-gradient(100deg, var(--accent) 10%, var(--muted) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (forced-colors: active) {
+  .lp-case-id {
+    background: none;
+    color: CanvasText;
+  }
+}
+
+/* Sideways reveals: copy from the left, panels from the right. */
+.lp-reveal.lp-from-left[data-reveal="pending"] {
+  transform: translate3d(-28px, 0, 0);
+}
+
+.lp-reveal.lp-from-right[data-reveal="pending"] {
+  transform: translate3d(28px, 0, 0);
+}
+
+@supports (animation-timeline: view()) {
+  /* lg: the dossier slides up with a slight tilt and settles flat by the
+     time a third of it is on screen. */
+  @media (min-width: 64rem) {
+    .lp-dossier {
+      animation: lp-land linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 30%;
+    }
+  }
+}
+
+@keyframes lp-land {
+  from {
+    transform: translate3d(0, 72px, 0) rotate(-2.2deg) scale(0.97);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* The closing CTA glows once, when the copy around it arrives. */
+.lp-halo {
+  position: relative;
+  border-radius: 0.5rem;
+}
+
+.lp-halo::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent), 0 0 28px 2px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.lp-reveal[data-reveal="shown"] .lp-halo::after {
+  animation: lp-halo 1.8s var(--ease) 0.7s 1 both;
+}
+
+@keyframes lp-halo {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+/* The closing's log field: faded at the top, clear behind the copy. */
+.lp-quiet-field {
+  mask-image:
+    linear-gradient(180deg, transparent, black 30%, black 75%, transparent),
+    radial-gradient(ellipse 45% 70% at 22% 50%, transparent 35%, black 85%);
+  mask-composite: intersect;
+}
+
+/* ------------------------------------------------------ pinned replay -- */
+
+/* Below lg the tabbed replay plays; from lg the pinned one. Without
+   JavaScript, ReplaySection's <noscript> shows the pinned one at every width
+   (unpinned, every chapter in full). */
+.lp-replay-scroll {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .lp-replay-tabs {
+    display: none;
+  }
+
+  .lp-replay-scroll {
+    display: grid;
+  }
+
+  .lp-chapters {
+    /* Block height, and the padding that lets the first and last chapters
+       reach the middle of the screen while the window is pinned. */
+    --chapter-height: clamp(14rem, 40vh, 20rem);
+    padding-block: max(0px, calc(16rem - var(--chapter-height) / 2));
+  }
+
+  .lp-chapter {
+    display: flex;
+    min-height: var(--chapter-height);
+    flex-direction: column;
+    justify-content: center;
+    /* An index link lands with the chapter at the middle of the screen. */
+    scroll-margin-top: calc(50vh - var(--chapter-height) / 2);
+  }
+}
+
+.lp-chapter + .lp-chapter {
+  margin-top: 2.5rem;
+}
+
+@media (min-width: 64rem) {
+  .lp-chapter + .lp-chapter {
+    margin-top: 0;
+  }
+}
+
+/* Pinning waits for the scroll tracking (data-live), and for a screen tall
+   enough to hold the index and the window. Sticky keeps the element's place
+   in the layout, so switching it on moves nothing. */
+@media (min-width: 64rem) and (min-height: 40rem) {
+  .lp-replay-scroll[data-live] .lp-replay-pin {
+    position: sticky;
+    top: max(4.5rem, calc(50vh - 16rem));
+  }
+}
+
+/* The trace beside the chapters fills up to the current one. */
+.lp-chapters-fill {
+  background: linear-gradient(to bottom, var(--accent), color-mix(in oklab, var(--accent) 45%, transparent));
+  transform-origin: top;
+  transform: scaleY(var(--chapter-reached, 0));
+  transition: transform var(--slow) var(--ease);
+}
+
+/* ------------------------------------------------------ reduced motion -- */
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-aurora,
+  .lp-log-track,
+  .lp-flare::after,
+  .lp-caret,
+  .lp-cta-secondary:hover::before,
+  .lp-cta-secondary:focus-visible::before,
+  .lp-trace,
+  .lp-tilt,
+  .lp-header,
+  .lp-fill,
+  .lp-slide-in {
+    animation: none;
+  }
+
+  .lp-trace-pulse,
+  .lp-packet {
+    display: none;
+  }
+
+  .lp-reveal,
+  .lp-unfold,
+  .lp-cta,
+  .lp-arrow,
+  .lp-key,
+  .lp-link,
+  .lp-spot::before,
+  .lp-cta-primary:hover::after,
+  .lp-cta-primary:focus-visible::after {
+    transition: none;
+  }
+
+  .lp-cta:active,
+  .lp-cta:hover .lp-arrow,
+  .lp-cta:focus-visible .lp-arrow,
+  .lp-spot:hover .lp-key,
+  .lp-spot:focus-within .lp-key {
+    transform: none;
+  }
+
+  .lp-depth,
+  .lp-horizon {
+    animation: none;
+  }
+
+  .lp-scan {
+    display: none;
+  }
+
+  .lp-chapters-fill {
+    transition: none;
+  }
+
+  .lp-method-cursor {
+    display: none;
+  }
+
+  .lp-dossier,
+  .lp-halo::after {
+    animation: none !important;
+  }
+
+  .lp-method-span,
+  .lp-method-node,
+  .lp-method-step,
+  .lp-method-path-fill {
+    animation: none;
+  }
+
+  /* The replay and the hero scene jump straight to their final frame. */
+  .lp-scene *,
+  .lp-scene *::after,
+  .lp-stage *,
+  .lp-stage *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
