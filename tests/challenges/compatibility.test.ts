@@ -75,6 +75,7 @@ describe("compatibility with DiagnosisRegistry", () => {
         wrongAttempts: new FixedWindowLimiter({ limit: 3, windowMs: 10 * 60_000, now: clock }),
         ipSubmissions: new FixedWindowLimiter({ limit: 10, windowMs: 10 * 60_000, now: clock }),
         trustedProxyHops: 0,
+        appOrigin: null, // development behaviour: these requests send no Origin, and the test is about the registry, not Origin
       });
     const cookieA = "buglab_attempt=11111111-1111-4111-8111-111111111111";
     const steps: { body: DiagnosisSubmission; headers: Record<string, string> }[] = [
@@ -108,6 +109,7 @@ describe("compatibility with DiagnosisRegistry", () => {
       wrongAttempts: new FixedWindowLimiter({ limit: 3, windowMs: 60_000 }),
       ipSubmissions: new FixedWindowLimiter({ limit: 10, windowMs: 60_000 }),
       trustedProxyHops: 0,
+      appOrigin: null, // development behaviour: the cookie's Secure attribute follows the request URL, as it did before
     });
     const { response } = await post(handler);
     assert.match(attemptCookieFrom(response), /^buglab_attempt=[0-9a-f-]{36}$/);

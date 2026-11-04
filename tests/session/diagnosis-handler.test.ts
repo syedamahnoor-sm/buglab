@@ -232,6 +232,7 @@ describe("diagnosis submission handler: parity with the live endpoint's response
       wrongAttempts: new FixedWindowLimiter({ limit: 3, windowMs: 10 * MINUTE, now }),
       ipSubmissions: new FixedWindowLimiter({ limit: 10, windowMs: 10 * MINUTE, now }),
       trustedProxyHops: 0,
+      appOrigin: null, // the live endpoint in development mode: this old client sends no Origin, and that must keep working
     });
     let last: Awaited<ReturnType<typeof read>> | undefined;
     let attemptCookie: string | undefined; // the live endpoint sets it on the first response only
