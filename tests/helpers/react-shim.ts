@@ -1,6 +1,6 @@
 /*
- * A minimal stand-in for the three React hooks that useDiagnosisSubmission uses
- * (useState, useRef, useEffect), with a small driver, renderHook.
+ * A minimal stand-in for the three React hooks that useDiagnosisSubmission and
+ * useRemountKey use (useState, useRef, useEffect), with a small driver, renderHook.
  *
  * Why it exists: the project has no DOM or component-test library, and React's
  * server renderer never runs effects or state updates. Swapping React for this
@@ -10,6 +10,11 @@
  * a state update after unmount as something to COUNT (real React silently drops
  * it), so a test can assert that none happened.
  *
+ * hide() and show() model a component kept alive in a hidden <Activity>, as
+ * Next.js does with visited pages: hiding runs every effect cleanup but keeps
+ * state, renders while hidden run no effects, and showing runs every effect
+ * again from the latest render.
+ *
  * It does not model batching, StrictMode or concurrent rendering. Behaviour that
  * depends on those still needs a real renderer.
  */
@@ -18,6 +23,7 @@ interface Slot {
   current?: unknown;
   deps?: readonly unknown[];
   cleanup?: () => void;
+  effect?: () => void | (() => void);
 }
 
 interface Runtime {
@@ -25,6 +31,7 @@ interface Runtime {
   setters: Array<(next: unknown) => void>;
   cursor: number;
   unmounted: boolean;
+  hidden: boolean;
   updatesAfterUnmount: number;
   pendingEffects: Array<() => void>;
   rerender: () => void;
@@ -65,6 +72,7 @@ export function useEffect(effect: () => void | (() => void), deps?: readonly unk
   const rt = runtime();
   const index = rt.cursor++;
   const slot = (rt.slots[index] ??= {});
+  slot.effect = effect;
   const previous = slot.deps;
   const changed =
     !previous ||
@@ -86,6 +94,7 @@ export function renderHook<T>(callback: () => T) {
     setters: [],
     cursor: 0,
     unmounted: false,
+    hidden: false,
     updatesAfterUnmount: 0,
     pendingEffects: [],
     rerender: () => {},
@@ -100,7 +109,8 @@ export function renderHook<T>(callback: () => T) {
     } finally {
       active = null;
     }
-    for (const run of rt.pendingEffects.splice(0)) run();
+    const effects = rt.pendingEffects.splice(0);
+    if (!rt.hidden) for (const run of effects) run();
   }
 
   rt.rerender = render;
@@ -111,6 +121,23 @@ export function renderHook<T>(callback: () => T) {
     unmount() {
       rt.unmounted = true;
       for (const slot of rt.slots) slot.cleanup?.();
+    },
+    /** Hidden in an <Activity>: every effect cleans up, state is kept. */
+    hide() {
+      rt.hidden = true;
+      for (const slot of rt.slots) {
+        slot.cleanup?.();
+        slot.cleanup = undefined;
+      }
+    },
+    /** Shown again: every effect runs again, from the latest render. */
+    show() {
+      rt.hidden = false;
+      for (const slot of rt.slots) {
+        if (!slot.effect) continue;
+        const cleanup = slot.effect();
+        slot.cleanup = typeof cleanup === "function" ? cleanup : undefined;
+      }
     },
     get updatesAfterUnmount() {
       return rt.updatesAfterUnmount;
