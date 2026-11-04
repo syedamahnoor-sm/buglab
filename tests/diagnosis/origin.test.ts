@@ -56,6 +56,32 @@ describe("normalizeOrigin", () => {
       assert.equal(normalizeOrigin(value), null, value);
     }
   });
+
+  // The URL parser drops empty credentials from href, so these used to pass as
+  // https://buglab.example. Any userinfo syntax is refused, empty or not.
+  test("rejects userinfo syntax even when the credentials are empty", () => {
+    for (const value of [
+      "https://@buglab.example",
+      "https://:@buglab.example",
+      "https://@buglab.example:443",
+      "HTTPS://@BUGLAB.EXAMPLE",
+      "http://@localhost:3000",
+      "http://:@localhost:3000",
+      "https://@@buglab.example",
+      "https://user:@buglab.example",
+      "https://:pass@buglab.example",
+    ]) {
+      assert.equal(normalizeOrigin(value), null, value);
+    }
+  });
+
+  test("still accepts the same origins written without userinfo", () => {
+    assert.equal(normalizeOrigin("https://buglab.example"), APP);
+    assert.equal(normalizeOrigin("https://buglab.example:443"), APP);
+    assert.equal(normalizeOrigin("http://localhost:3000"), "http://localhost:3000");
+    assert.equal(normalizeOrigin("http://127.0.0.1:3000"), "http://127.0.0.1:3000");
+    assert.equal(normalizeOrigin("http://[::1]:3000"), "http://[::1]:3000");
+  });
 });
 
 describe("parseAppOrigin", () => {
@@ -72,7 +98,17 @@ describe("parseAppOrigin", () => {
   });
 
   test("throws on anything that is not exactly an origin, rather than accepting everything", () => {
-    for (const value of ["buglab.example", "https://buglab.example/", "https://buglab.example/app", "ftp://x", "null", "*"]) {
+    for (const value of [
+      "buglab.example",
+      "https://buglab.example/",
+      "https://buglab.example/app",
+      "ftp://x",
+      "null",
+      "*",
+      "https://@buglab.example",
+      "https://:@buglab.example",
+      "https://user:pass@buglab.example",
+    ]) {
       assert.throws(() => parseAppOrigin(value), /BUGLAB_APP_ORIGIN must be an origin/, value);
     }
   });
@@ -96,7 +132,15 @@ describe("isSameOriginRequest with BUGLAB_APP_ORIGIN configured", () => {
   });
 
   test("rejects malformed and opaque Origin values", () => {
-    for (const origin of ["null", "https://", "garbage", "https://buglab.example/", "https://x@buglab.example"]) {
+    for (const origin of [
+      "null",
+      "https://",
+      "garbage",
+      "https://buglab.example/",
+      "https://x@buglab.example",
+      "https://@buglab.example",
+      "https://:@buglab.example",
+    ]) {
       assert.equal(same({ origin }), false, origin);
     }
   });
@@ -133,6 +177,8 @@ describe("isSameOriginRequest without BUGLAB_APP_ORIGIN (development fallback)",
     assert.equal(same({ origin: "https://buglab.example", host: "BUGLAB.EXAMPLE" }), true, "uppercase Host");
     assert.equal(same({ origin: "https://buglab.example", host: "buglab.example:443" }), true, "default port in Host");
     assert.equal(same({ origin: "https://evil.example", host: "buglab.example" }), false);
+    assert.equal(same({ origin: "https://@buglab.example", host: "buglab.example" }), false, "empty userinfo in Origin");
+    assert.equal(same({ origin: "https://buglab.example", host: "@buglab.example" }), false, "userinfo in Host");
     assert.equal(same({ origin: "https://buglab.example:8443", host: "buglab.example" }), false);
     assert.equal(same({ origin: "https://buglab.example", host: "buglab.example/evil" }), false, "malformed Host");
   });
