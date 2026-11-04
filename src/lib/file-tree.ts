@@ -1,0 +1,90 @@
+import type { FileNode, ScenarioFile } from "@/types/workspace";
+
+type MutableFolder = Extract<FileNode, { kind: "folder" }>;
+
+function sortNodes(nodes: FileNode[]): FileNode[] {
+  return nodes
+    .map((node) =>
+      node.kind === "folder" ? { ...node, children: sortNodes(node.children) } : node,
+    )
+    .sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+/** Builds a folders-first tree from a flat list of file paths. */
+export function buildFileTree(files: ScenarioFile[]): FileNode[] {
+  const root: FileNode[] = [];
+
+  for (const file of files) {
+    const segments = file.path.split("/");
+    let siblings = root;
+
+    segments.slice(0, -1).forEach((name, index) => {
+      const path = segments.slice(0, index + 1).join("/");
+      let folder = siblings.find(
+        (node): node is MutableFolder => node.kind === "folder" && node.path === path,
+      );
+      if (!folder) {
+        folder = { kind: "folder", name, path, children: [] };
+        siblings.push(folder);
+      }
+      siblings = folder.children;
+    });
+
+    siblings.push({ kind: "file", name: segments[segments.length - 1], path: file.path });
+  }
+
+  return sortNodes(root);
+}
+
+export function collectFolderPaths(nodes: FileNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.kind === "folder" ? [node.path, ...collectFolderPaths(node.children)] : [],
+  );
+}
+
+/** "src/routes/auth.ts" -> ["src", "src/routes"] */
+export function getAncestorPaths(path: string): string[] {
+  const segments = path.split("/").slice(0, -1);
+  return segments.map((_, index) => segments.slice(0, index + 1).join("/"));
+}
+
+export function getFileName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+/** "src/routes/auth.ts" -> "src/routes/", "INCIDENT.md" -> "" */
+export function getFolderPrefix(path: string): string {
+  return path.slice(0, path.lastIndexOf("/") + 1);
+}
+
+/**
+ * For files that share a name, the shortest trailing folder path that tells
+ * them apart: ["src/a/index.ts", "lib/b/index.ts"] -> "a", "b". Files with a
+ * unique name get no entry; a root-level file is shown as "./".
+ */
+export function getDisambiguatingFolders(paths: readonly string[]): Map<string, string> {
+  const byName = new Map<string, string[]>();
+  for (const path of paths) {
+    const name = getFileName(path);
+    byName.set(name, [...(byName.get(name) ?? []), path]);
+  }
+
+  const folders = new Map<string, string>();
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    const segments = group.map((path) => path.split("/").slice(0, -1));
+    const maxDepth = Math.max(...segments.map((parts) => parts.length));
+
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const suffixes = segments.map((parts) => parts.slice(-depth).join("/"));
+      if (new Set(suffixes).size === suffixes.length || depth === maxDepth) {
+        group.forEach((path, index) => folders.set(path, suffixes[index] || "./"));
+        break;
+      }
+    }
+  }
+  return folders;
+}

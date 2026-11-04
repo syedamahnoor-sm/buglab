@@ -20,6 +20,9 @@
 # production
 /build
 
+# self-hosted Monaco, copied from node_modules by scripts/monaco-assets.mjs
+/public/monaco/
+
 # misc
 .DS_Store
 *.pem

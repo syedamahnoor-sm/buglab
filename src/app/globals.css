@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
+/*
+ * BugLab dark theme.
+ * Raw palette lives on :root; @theme exposes it to Tailwind as utilities
+ * (e.g. bg-surface, border-border, text-muted).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --background: #0b0e14;
+  --foreground: #d6dce6;
+
+  --surface: #10141b;
+  --surface-raised: #151a23;
+  --surface-sunken: #0d1117;
+  --border: #222a36;
+  --border-strong: #2e3847;
+
+  --muted: #8a94a6;
+  --subtle: #7d8799; /* >= 4.8:1 on every surface (WCAG AA) */
+
+  --accent: #6ea8fe;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --info: #67e8f9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
