@@ -58,7 +58,7 @@ export function FeaturedChallenge({ challenge }: { challenge: PublicChallenge })
         </div>
         <Link
           href={challengePath(challenge.id)}
-          className={`group inline-flex h-11 shrink-0 items-center justify-center gap-2 justify-self-stretch rounded-xl bg-accent px-5 sm:justify-self-start lg:justify-self-end text-sm font-semibold text-background shadow-[0_8px_24px_-10px_var(--accent)] transition-[background-color,box-shadow,scale] duration-200 hover:bg-accent/90 hover:shadow-[0_10px_30px_-8px_var(--accent)] active:scale-[0.98] motion-reduce:transition-colors motion-reduce:active:scale-100 ${focusRing}`}
+          className={`group inline-flex h-11 shrink-0 items-center justify-center gap-2 justify-self-stretch rounded-xl bg-accent cta-gradient px-5 sm:justify-self-start lg:justify-self-end text-sm font-semibold text-background shadow-[0_8px_24px_-10px_var(--accent)] transition-[background-color,box-shadow,scale] duration-200 hover:bg-accent/90 hover:shadow-[0_10px_30px_-8px_var(--accent)] active:scale-[0.98] motion-reduce:transition-colors motion-reduce:active:scale-100 ${focusRing}`}
         >
           Open Challenge {challenge.number}
           <ArrowRightIcon className="transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />

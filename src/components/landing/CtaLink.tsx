@@ -4,7 +4,7 @@ import { ArrowRightIcon } from "./icons";
 import { styles } from "./styles";
 
 const variants = {
-  primary: `${styles.ctaPrimary} overflow-hidden bg-accent text-background hover:brightness-110`,
+  primary: `${styles.ctaPrimary} cta-gradient overflow-hidden bg-accent text-background hover:brightness-110`,
   secondary: `${styles.ctaSecondary} border border-border-strong bg-surface/80 text-foreground hover:bg-surface-raised`,
 };
 

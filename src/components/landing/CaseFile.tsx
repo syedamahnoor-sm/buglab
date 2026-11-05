@@ -95,7 +95,7 @@ export function CaseFile() {
 
           <div className={`relative ${styles.dossier}`}>
             {/* The clipped log line. */}
-            <p className="relative z-10 mb-3 inline-flex max-w-full items-center gap-2.5 rounded-md border border-danger/30 bg-surface-raised px-3 py-1.5 font-mono text-[11px] text-muted shadow-lg shadow-black/40 lg:absolute lg:-top-4 lg:left-10 lg:mb-0 lg:-rotate-[1.5deg]">
+            <p className="relative z-10 mb-3 inline-flex max-w-full items-center gap-2.5 rounded-md border border-danger/30 bg-surface-raised px-3 py-1.5 font-mono text-[11px] text-muted shadow-lg shadow-ink/40 lg:absolute lg:-top-4 lg:left-10 lg:mb-0 lg:-rotate-[1.5deg]">
               <span aria-hidden="true" className="h-3.5 w-1.5 shrink-0 rounded-sm border border-border-strong bg-surface" />
               <span className="sr-only">Clipped log line: </span>
               <span className="text-subtle">{caseFile.clipping.time}</span>
@@ -105,7 +105,7 @@ export function CaseFile() {
             <article
               data-spot
               aria-labelledby="case-title"
-              className={`${styles.spot} rounded-2xl border border-border-strong bg-surface shadow-[0_40px_90px_-40px_rgb(0_0_0/0.9)]`}
+              className={`${styles.spot} rounded-2xl border border-border-strong bg-surface shadow-[0_40px_90px_-40px_color-mix(in_oklab,var(--color-ink)_90%,transparent)]`}
             >
               {/* Header strip */}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-2xl border-b border-border bg-[repeating-linear-gradient(135deg,transparent_0_10px,rgb(255_255_255/0.015)_10px_20px)] px-6 py-3 sm:px-8 lg:pt-5">
@@ -182,7 +182,7 @@ export function CaseFile() {
                 </div>
 
                 {/* The timeline, taped over the dossier's edge (md and up). */}
-                <div className="relative rounded-xl border border-border bg-surface-raised p-5 shadow-xl shadow-black/40 md:-mr-4 md:mt-6 md:self-start md:rotate-[1.2deg] lg:-mr-5">
+                <div className="relative rounded-xl border border-border bg-surface-raised p-5 shadow-xl shadow-ink/40 md:-mr-4 md:mt-6 md:self-start md:rotate-[1.2deg] lg:-mr-5">
                   <span
                     aria-hidden="true"
                     className="absolute -top-2 left-1/2 hidden h-4 w-16 -translate-x-1/2 -rotate-2 rounded-sm bg-foreground/10 backdrop-blur md:block"

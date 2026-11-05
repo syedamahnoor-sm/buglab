@@ -228,7 +228,7 @@ export function ReplayStage({ chapter, mode, layout = "responsive" }: ReplayStag
             when={is("inspect")}
             className={styles.slideIn}
             delay={450}
-            base="absolute inset-x-0 bottom-0 h-[52%] border-t border-border-strong bg-surface-raised shadow-[0_-12px_30px_-12px_rgb(0_0_0/0.6)]"
+            base="absolute inset-x-0 bottom-0 h-[52%] border-t border-border-strong bg-surface-raised shadow-[0_-12px_30px_-12px_color-mix(in_oklab,var(--color-ink)_60%,transparent)]"
           >
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
               <span className="truncate text-foreground">
@@ -283,7 +283,7 @@ export function ReplayStage({ chapter, mode, layout = "responsive" }: ReplayStag
             when={is("collect")}
             className={styles.rise}
             delay={1300}
-            base="absolute right-3 top-[4.25rem] w-[15.5rem] rounded-md border border-warning/30 bg-surface-raised p-2.5 shadow-xl shadow-black/40"
+            base="absolute right-3 top-[4.25rem] w-[15.5rem] rounded-md border border-warning/30 bg-surface-raised p-2.5 shadow-xl shadow-ink/40"
           >
             <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">Observation</p>
             <p className="mt-1 text-foreground/90">
@@ -304,7 +304,7 @@ export function ReplayStage({ chapter, mode, layout = "responsive" }: ReplayStag
             when
             className={styles.rise}
             delay={150}
-            base="w-full max-w-sm rounded-lg border border-border-strong bg-surface p-4 font-sans shadow-2xl shadow-black/50"
+            base="w-full max-w-sm rounded-lg border border-border-strong bg-surface p-4 font-sans shadow-2xl shadow-ink/50"
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">Diagnosis</span>

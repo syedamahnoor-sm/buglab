@@ -3,7 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
 import { getModelUri, releaseModels, syncModel, type ModelSource } from "@/lib/monaco-models";
-import { BUGLAB_THEME, setupMonaco } from "@/lib/monaco-setup";
+import { BUGLAB_LIGHT_THEME, BUGLAB_THEME, setupMonaco } from "@/lib/monaco-setup";
+import { useTheme } from "@/components/theme/theme-store";
 import type { EditorLanguage } from "@/types/workspace";
 import { EditorLoading } from "./EditorLoading";
 import { useRemountKey } from "./useRemountKey";
@@ -37,6 +38,8 @@ export function MonacoEditor({ challengeId, path, content, language, openPaths }
   // disposed its editor but would never create another: a new key gives it a
   // fresh one. Its model comes back from sourceRef in beforeMount.
   const editorKey = useRemountKey();
+  // The editor follows the page's theme; Monaco swaps its colours in place when this changes.
+  const theme = useTheme();
 
   useEffect(() => {
     if (!MONACO_VS_PATH) return;
@@ -93,7 +96,7 @@ export function MonacoEditor({ challengeId, path, content, language, openPaths }
       path={uri}
       defaultValue={content}
       language={language}
-      theme={BUGLAB_THEME}
+      theme={theme === "light" ? BUGLAB_LIGHT_THEME : BUGLAB_THEME}
       beforeMount={handleBeforeMount}
       loading={<EditorLoading />}
       options={{

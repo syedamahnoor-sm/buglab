@@ -153,8 +153,9 @@
 
 /* Static background; browsers with scroll timelines animate it below. */
 .lp-header {
-  background-color: color-mix(in srgb, var(--background) 85%, transparent);
+  background-color: color-mix(in srgb, var(--nav) 85%, transparent);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--nav-shadow);
 }
 
 /* --------------------------------------------------------- trace line -- */
@@ -231,11 +232,11 @@
 
 @keyframes lp-firm {
   from {
-    background-color: color-mix(in srgb, var(--background) 55%, transparent);
+    background-color: color-mix(in srgb, var(--nav) 55%, transparent);
     border-color: transparent;
   }
   to {
-    background-color: color-mix(in srgb, var(--background) 88%, transparent);
+    background-color: color-mix(in srgb, var(--nav) 88%, transparent);
     border-color: var(--border);
   }
 }
@@ -254,6 +255,11 @@
 
 .lp-cta:active {
   transform: scale(0.98);
+}
+
+/* On light, brightening the blue would weaken the white label; the gradient deepens instead (.cta-gradient). */
+:root[data-theme="light"] .lp-cta-primary:hover {
+  filter: none;
 }
 
 .lp-cta-primary:hover,

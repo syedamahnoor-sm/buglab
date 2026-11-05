@@ -186,13 +186,13 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
               }}
               placeholder="Search title, tech or topic"
               maxLength={100}
-              className="h-11 w-full rounded-xl border border-card-border bg-background pl-10 pr-3 text-sm text-foreground transition-[border-color,box-shadow] duration-150 placeholder:text-subtle hover:border-card-border-hover focus:border-accent/60 focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_14%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent motion-reduce:transition-none"
+              className="h-11 w-full rounded-xl border border-card-border bg-field pl-10 pr-3 text-sm text-foreground transition-[border-color,box-shadow] duration-150 placeholder:text-subtle hover:border-card-border-hover focus:border-accent/60 focus:shadow-[0_0_0_4px_color-mix(in_oklab,var(--accent)_14%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent motion-reduce:transition-none"
             />
           </label>
           <div className="order-last basis-full pt-1 xl:order-none xl:basis-auto xl:pt-0">
             <DifficultyFilter challenges={challenges} query={current} onQueryChange={change} />
           </div>
-          <label className="flex h-11 items-center gap-2 rounded-xl border border-card-border bg-background px-3.5 text-sm text-muted transition-colors duration-150 hover:border-card-border-hover focus-within:outline focus-within:outline-2 focus-within:outline-accent max-sm:flex-1">
+          <label className="flex h-11 items-center gap-2 rounded-xl border border-card-border bg-field px-3.5 text-sm text-muted transition-colors duration-150 hover:border-card-border-hover focus-within:outline focus-within:outline-2 focus-within:outline-accent max-sm:flex-1">
             <span>Sort</span>
             <select
               value={query.sort}
@@ -213,7 +213,7 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
             className={`flex h-11 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm transition-colors duration-150 max-sm:flex-1 ${focusRing} ${
               technologyCount > 0
                 ? "border-accent/60 bg-accent/15 text-foreground"
-                : "border-card-border bg-background text-foreground hover:border-card-border-hover hover:bg-card"
+                : "border-card-border bg-field text-foreground hover:border-card-border-hover hover:bg-hover-fill"
             }`}
           >
             <SlidersIcon />
@@ -314,7 +314,7 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
                 <button
                   type="button"
                   onClick={loadMore}
-                  className={`group mt-1 inline-flex h-11 items-center gap-2 rounded-xl border border-card-border-hover bg-card px-5 text-sm font-medium text-foreground shadow-card transition-[background-color,border-color,box-shadow] duration-200 hover:border-accent/50 hover:bg-card-hover hover:shadow-card-hover ${focusRing}`}
+                  className={`group mt-1 inline-flex h-11 items-center gap-2 rounded-xl border border-card-border-hover bg-card px-5 text-sm font-medium text-foreground shadow-card transition-[background-color,border-color,box-shadow] duration-200 hover:border-accent/50 hover:bg-hover-fill-raised hover:shadow-card-hover ${focusRing}`}
                 >
                   Load {shown.next} more
                   <ChevronDownIcon className="text-accent transition-transform duration-200 group-hover:translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0" />
@@ -346,7 +346,7 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
           <button
             type="button"
             onClick={clear}
-            className={`mt-5 h-10 rounded-xl border border-card-border-hover bg-card px-4 text-sm font-medium text-foreground shadow-card transition-colors duration-150 hover:border-accent/50 hover:bg-card-hover ${focusRing}`}
+            className={`mt-5 h-10 rounded-xl border border-card-border-hover bg-card px-4 text-sm font-medium text-foreground shadow-card transition-colors duration-150 hover:border-accent/50 hover:bg-hover-fill-raised ${focusRing}`}
           >
             Clear all filters
           </button>

@@ -1,10 +1,15 @@
 @import "tailwindcss";
 
 /*
- * BugLab dark theme.
- * Raw palette lives on :root; @theme exposes it to Tailwind as utilities
- * (e.g. bg-surface, border-border, text-muted). A second theme redefines the
- * :root values; components only ever name the semantic tokens.
+ * BugLab's themes.
+ *
+ * The raw palette lives on :root as semantic tokens; @theme exposes them to
+ * Tailwind as utilities (bg-surface, border-border, text-muted, ...).
+ * Components only ever name these tokens, so a theme is just a set of values.
+ *
+ * Dark is the default (:root) and the approved baseline. Light redefines the
+ * same tokens under :root[data-theme="light"]. The attribute is set before
+ * the first paint by the script in app/layout.tsx (see src/lib/theme.ts).
  */
 :root {
   color-scheme: dark;
@@ -44,6 +49,43 @@
   --canvas-glow: color-mix(in oklab, var(--accent) 9%, transparent);
 
   /*
+   * Shadow ink: the colour and strength of free-standing shadows (landing
+   * windows, popovers). Pure black at full strength on dark; a soft navy on
+   * light, where black shadows look dirty.
+   */
+  --shadow-ink: 0 0 0;
+  --shadow-strength: 1;
+
+  /*
+   * The navigation bar and form fields. On dark both are the page colour (the
+   * approved look: a translucent page-coloured bar, recessed fields); light
+   * makes them white so they stand off the blue-grey canvas.
+   */
+  --nav: var(--background);
+  --nav-shadow: none;
+  --field: var(--background);
+
+  /*
+   * Hover and current states. On dark these are the values the components
+   * always used (so dark is unchanged); light defines clearer steps.
+   *   hover-fill         chips, filters and other controls on fields or panels
+   *   hover-fill-raised  secondary buttons that sit on cards
+   *   nav-current        the current page in the navigation (distinct from hover)
+   *   cta-image-hover    the primary-action gradient, deepened on hover
+   *   card-edge-tint     how much of the category hue tints a hovered card's edge
+   */
+  --hover-fill: var(--card);
+  --hover-fill-raised: var(--card-hover);
+  --nav-current: var(--surface-raised);
+  --cta-image-hover: none;
+  --card-edge-tint: 38%;
+
+  /* Atmosphere: the light behind the top of browsing pages, the featured case and primary actions. */
+  --canvas-image: radial-gradient(ellipse 70% 440px at 50% -120px, var(--canvas-glow), transparent 75%);
+  --featured-image: radial-gradient(ellipse 55% 140% at 0% 0%, var(--canvas-glow), transparent 70%);
+  --cta-image: none;
+
+  /*
    * Category identity: one restrained hue per category, used only for small
    * accents (icon tile, hover edge). Chosen away from the green, amber and red
    * that mean difficulty, so the two never read as the same signal.
@@ -55,11 +97,96 @@
   --cat-security: #f2a882;
   --cat-performance: #82cdf2;
 
-  /* The site footer: near-black, a step below the page. */
+  /* Syntax colours for static code (the workspace preview), matching the editor's palette. */
+  --syntax-keyword: #c4a7ff;
+  --syntax-string: #9ee6a8;
+  --syntax-number: #fbbf24;
+  --syntax-comment: #7d8799;
+  --syntax-function: #67e8f9;
+
+  /* The site footer: near-black in both themes, by design. */
   --footer: #080a0f;
   --footer-border: #161c27;
   --footer-text: #e8ecf3;
   --footer-muted: #8a94a6;
+  --footer-accent: #6ea8fe; /* the soft blue on near-black, whatever the page theme */
+}
+
+/*
+ * Light: a cool blue-grey canvas, crisp white surfaces (navigation, cards,
+ * panes) with clear borders and soft navy shadows, and mist-blue inset panels
+ * one step below the canvas. Three levels: canvas, white surface, inset.
+ * Every text colour is >= 4.5:1 on every light surface, including the 10-15%
+ * tints used by badges and selected filters (tests/ui/theme.test.ts).
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #edf2f9;
+  --foreground: #14233c;
+
+  --surface: #ffffff;
+  --surface-raised: #eef3f9;
+  --surface-sunken: #f5f8fc;
+  --border: #c8d4e5;
+  --border-strong: #b3c2d8;
+
+  --muted: #52627b;
+  --subtle: #56667e;
+
+  /* The strong accent: brand blue that stays readable as text on every surface and tint. */
+  --accent: #1d4ed8;
+  --success: #11652f;
+  --warning: #8e4204;
+  --danger: #a91d25;
+  --info: #0a6178;
+
+  --card: #ffffff;
+  --card-hover: #fafcff;
+  --card-border: #cbd6e6;
+  --card-border-hover: #94abcf;
+  --card-highlight: rgb(255 255 255 / 0.9);
+  --card-shadow: 0 1px 2px rgb(20 35 60 / 0.06), 0 4px 12px -4px rgb(20 35 60 / 0.07), 0 14px 32px -18px rgb(20 35 60 / 0.2);
+  --card-shadow-hover: 0 2px 4px rgb(20 35 60 / 0.08), 0 10px 24px -8px rgb(20 35 60 / 0.14), 0 24px 48px -22px rgb(20 35 60 / 0.32);
+  --panel: #e7eef8;
+  --panel-border: #cfdaea;
+  --canvas-glow: color-mix(in oklab, #2563eb 10%, transparent);
+
+  --shadow-ink: 20 35 60;
+  --shadow-strength: 0.22;
+
+  --nav: #ffffff;
+  --nav-shadow: 0 1px 0 rgb(20 35 60 / 0.03), 0 6px 18px -10px rgb(20 35 60 / 0.18);
+  --field: #ffffff;
+
+  --hover-fill: #e8f0fb;
+  --hover-fill-raised: #ecf2fb;
+  --nav-current: #e1e9f6;
+  --cta-image-hover: linear-gradient(115deg, #1a43c0 0%, #1d4ed8 100%);
+  --card-edge-tint: 50%;
+
+  /* A mist-blue tint behind the top of the page, fading into the canvas. */
+  --canvas-image:
+    linear-gradient(to bottom, transparent 0, var(--background) 560px),
+    linear-gradient(115deg, #f5f8fe 0%, #eaf1fb 55%, #e4edfb 100%);
+  --featured-image: linear-gradient(115deg, #f8fbff 0%, #eaf2ff 100%);
+  /* Refined from #2563eb -> #3b82f6 so white text stays >= 4.5:1 across the whole button. */
+  --cta-image: linear-gradient(115deg, #1d4ed8 0%, #2563eb 100%);
+
+  /* The light editor's syntax palette (lib/monaco-setup.ts), >= 4.5:1 on light surfaces. */
+  --syntax-keyword: #6d3fd6;
+  --syntax-string: #18794e;
+  --syntax-number: #975108;
+  --syntax-comment: #5f6e84;
+  --syntax-function: #0b6a80;
+
+  /* Deeper category hues: >= 3:1 on white and on their own tints, for icons. */
+  --cat-authentication: #7356d8;
+  --cat-api: #0b8a72;
+  --cat-frontend: #4457df;
+  --cat-database: #b83b82;
+  --cat-security: #c2561f;
+  --cat-performance: #1678b0;
 }
 
 @theme inline {
@@ -83,10 +210,19 @@
   --color-card-border-hover: var(--card-border-hover);
   --color-panel: var(--panel);
   --color-panel-border: var(--panel-border);
+  --color-nav: var(--nav);
+  --color-field: var(--field);
+  --color-hover-fill: var(--hover-fill);
+  --color-hover-fill-raised: var(--hover-fill-raised);
+  --color-nav-current: var(--nav-current);
+  --shadow-nav: var(--nav-shadow);
   --color-footer: var(--footer);
   --color-footer-border: var(--footer-border);
   --color-footer-text: var(--footer-text);
   --color-footer-muted: var(--footer-muted);
+  --color-footer-accent: var(--footer-accent);
+  /* Shadow colour, e.g. shadow-ink/40: black on dark, soft navy on light. */
+  --color-ink: rgb(var(--shadow-ink) / var(--shadow-strength));
   --shadow-card: inset 0 1px 0 var(--card-highlight), var(--card-shadow);
   --shadow-card-hover: inset 0 1px 0 var(--card-highlight), var(--card-shadow-hover);
   --animate-rise: rise 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
@@ -116,7 +252,7 @@
   --cat-tint: color-mix(in oklab, var(--cat) 12%, transparent);
   --cat-tint-strong: color-mix(in oklab, var(--cat) 18%, transparent);
   --cat-ring: color-mix(in oklab, var(--cat) 28%, transparent);
-  --cat-edge: color-mix(in oklab, var(--cat) 38%, var(--card-border));
+  --cat-edge: color-mix(in oklab, var(--cat) var(--card-edge-tint), var(--card-border));
 }
 
 /*
@@ -131,14 +267,47 @@
   }
 }
 
-/* The featured challenge's light: the accent glowing from its top-left corner. */
+/* The featured challenge's light: an accent glow on dark, porcelain to mist-blue on light. */
 .featured-glow {
-  background-image: radial-gradient(ellipse 55% 140% at 0% 0%, var(--canvas-glow), transparent 70%);
+  background-image: var(--featured-image);
 }
 
-/* A soft wash of the accent behind the top of the library, fading into the page. */
+/* The atmosphere behind the top of the library, fading into the page. */
 .library-canvas {
-  background-image: radial-gradient(ellipse 70% 440px at 50% -120px, var(--canvas-glow), transparent 75%);
+  background-image: var(--canvas-image);
+}
+
+/* Primary actions: solid accent on dark, a restrained blue gradient on light that deepens on hover. */
+.cta-gradient {
+  background-image: var(--cta-image);
+}
+@media (hover: hover) {
+  .cta-gradient:hover {
+    background-image: var(--cta-image-hover);
+  }
+}
+
+/*
+ * The theme toggle shows the theme in use: a sun in light, a moon in dark.
+ * Decided here from the attribute, not in React, so it is right at first paint.
+ */
+.theme-toggle-sun,
+.theme-toggle-moon {
+  transition:
+    opacity 200ms ease,
+    transform 250ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+:root:not([data-theme="light"]) .theme-toggle-sun,
+:root[data-theme="light"] .theme-toggle-moon {
+  opacity: 0;
+  transform: rotate(-60deg) scale(0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-sun,
+  .theme-toggle-moon {
+    transition: opacity 120ms ease;
+    transform: none !important;
+  }
 }
 
 body {

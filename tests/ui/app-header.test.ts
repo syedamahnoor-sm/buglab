@@ -17,7 +17,7 @@ function navItems(markup: string) {
 }
 
 describe("AppHeader navigation", () => {
-  test("on the library, Challenges is the current page and Workspace is unavailable", () => {
+  test("on the library, Challenges is the current page and Workspace links to the workspace page", () => {
     const items = navItems(render("challenges"));
     assert.deepEqual(items.map((item) => item.label), ["Challenges", "Workspace"], "only working sections are listed");
     const [challenges, workspace] = items;
@@ -25,10 +25,11 @@ describe("AppHeader navigation", () => {
     assert.match(challenges.attributes, /href="\/challenges"/);
     assert.match(challenges.attributes, /aria-current="page"/);
 
-    assert.deepEqual([workspace.tag, workspace.label], ["span", "Workspace"]);
-    assert.match(workspace.attributes, /aria-disabled="true"/);
-    assert.match(workspace.attributes, /title="Open a challenge to use the workspace"/);
-    assert.doesNotMatch(workspace.attributes, /aria-current/);
+    // No dead end: Workspace is a real link, to the welcome screen when no challenge is open.
+    assert.deepEqual([workspace.tag, workspace.label], ["a", "Workspace"]);
+    assert.match(workspace.attributes, /href="\/workspace"/);
+    assert.doesNotMatch(workspace.attributes, /aria-current|aria-disabled/);
+    assert.match(workspace.attributes, /focus-visible:outline-accent/);
   });
 
   test("in a workspace, Workspace is the current page and Challenges links back to the library", () => {
@@ -47,7 +48,8 @@ describe("AppHeader navigation", () => {
       const markup = render(current);
       assert.equal(markup.match(/aria-current="page"/g)?.length, 1, current);
       assert.doesNotMatch(markup, /Soon|Not available yet|Demo Preview|Learn/, current);
-      assert.equal(navItems(markup).filter((item) => item.tag === "a").length, 1, `${current}: one link`);
+      // In a workspace, Workspace is plain text so a click cannot take the learner away from the investigation.
+      assert.equal(navItems(markup).filter((item) => item.tag === "a").length, current === "workspace" ? 1 : 2, `${current}: links`);
     }
   });
 

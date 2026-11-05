@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { BugIcon } from "@/components/ui/icons";
 import { ROUTES, SECTION_IDS, navLinks, openWorkspaceCta } from "@/data/landing";
 import { CtaLink } from "./CtaLink";
@@ -40,7 +41,8 @@ export function LandingHeader() {
             </ul>
           </nav>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
             <CtaLink href={openWorkspaceCta.href} size="sm" arrow>
               {openWorkspaceCta.label}
             </CtaLink>
