@@ -7,6 +7,7 @@ import { rootCauseOptions } from "@/data/challenge-001/diagnosis-options";
 import { styles } from "@/components/landing/styles";
 import * as landing from "@/data/landing";
 import { heroLogLines, heroScene } from "@/data/landing-hero";
+import { listChallengeSummaries } from "@/lib/challenge-catalog";
 
 const APP_DIR = fileURLToPath(new URL("../../src/app/", import.meta.url));
 const LANDING_DIR = fileURLToPath(new URL("../../src/components/landing/", import.meta.url));
@@ -18,12 +19,16 @@ function walk(dir: string): string[] {
   });
 }
 
-/** "/" -> src/app/page.tsx, "/welcome" -> src/app/welcome/page.tsx */
+/** "/" -> src/app/page.tsx, "/challenges" -> src/app/challenges/page.tsx, a challenge -> the dynamic route plus a published id. */
 function pageExists(route: string) {
+  const challenge = route.match(/^\/challenges\/([^/]+)$/);
+  if (challenge) {
+    return existsSync(join(APP_DIR, "challenges", "[challengeId]", "page.tsx")) && listChallengeSummaries().some(({ id }) => id === challenge[1]);
+  }
   return existsSync(join(APP_DIR, route.replace(/^\//, ""), "page.tsx"));
 }
 
-const landingSources = [...walk(LANDING_DIR), join(APP_DIR, "welcome", "page.tsx")]
+const landingSources = [...walk(LANDING_DIR), join(APP_DIR, "page.tsx")]
   .filter((path) => /\.tsx?$/.test(path))
   .map((path) => ({ path, text: readFileSync(path, "utf8") }));
 
@@ -51,11 +56,11 @@ describe("landing page styles", () => {
     }
   });
 
-  test("only /welcome loads the landing stylesheet", () => {
+  test("only the landing page at / loads the landing stylesheet", () => {
     const importers = walk(fileURLToPath(new URL("../../src/", import.meta.url))).filter(
       (path) => /\.tsx?$/.test(path) && readFileSync(path, "utf8").includes("landing/landing.css"),
     );
-    assert.deepEqual(importers, [join(APP_DIR, "welcome", "page.tsx")]);
+    assert.deepEqual(importers, [join(APP_DIR, "page.tsx")]);
   });
 });
 
@@ -66,10 +71,11 @@ describe("landing page routes", () => {
     }
   });
 
-  test("workspace CTAs all use the central workspace route", () => {
-    for (const cta of [landing.primaryCta, landing.openWorkspaceCta, landing.caseCta, landing.replayCta]) {
-      assert.equal(cta.href, landing.ROUTES.workspace);
-    }
+  test("the main calls to action lead to the library; the case links open the challenge the page walks through", () => {
+    assert.equal(landing.primaryCta.href, landing.ROUTES.library);
+    assert.equal(landing.openWorkspaceCta.href, landing.ROUTES.library);
+    for (const cta of [landing.caseCta, landing.replayCta]) assert.equal(cta.href, landing.ROUTES.featuredChallenge);
+    assert.equal(landing.ROUTES.featuredChallenge, `/challenges/${landing.featuredChallenge.id}`);
   });
 
   test("components never hard-code a route", () => {

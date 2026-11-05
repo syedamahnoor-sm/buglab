@@ -2,32 +2,26 @@ import { SessionChallengeOverview } from "@/components/challenge/SessionChalleng
 import { AppHeader } from "@/components/layout/AppHeader";
 import { SkipLinks } from "@/components/layout/SkipLinks";
 import { WorkspaceClient } from "@/components/workspace/WorkspaceClient";
-import { ChallengeSessionProvider } from "@/engine/client/ChallengeSessionProvider";
-import { sessionConfigForChallenge } from "@/engine/session/config";
+import { challengePath, ROUTES } from "@/lib/challenge-routes";
 import type { WorkspaceScenario } from "@/types/workspace";
+import { ChallengeJourney, type ChallengeLink } from "./ChallengeJourney";
 
 interface ChallengeWorkspacePageProps {
   /** Learner-visible scenario data only. Answer keys never pass through here. */
   scenario: WorkspaceScenario;
+  /** The next published challenge, offered once this one is solved; null for the last. */
+  next?: { id: string; number: string; title: string } | null;
 }
 
 /** The full workspace page for one challenge: header, overview and workspace. */
-export function ChallengeWorkspacePage({ scenario }: ChallengeWorkspacePageProps) {
+export function ChallengeWorkspacePage({ scenario, next = null }: ChallengeWorkspacePageProps) {
+  const nextLink: ChallengeLink | null = next ? { href: challengePath(next.id), number: next.number, title: next.title } : null;
   return (
     <>
       <SkipLinks />
       <AppHeader current="workspace" />
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
-        {/*
-          TEMPORARY: investigationStarted is fixed to true, which keeps today's
-          "Investigating" display. The real signal (the first evidence, hypothesis
-          or observation added) needs Syeda's approval to change the investigation
-          controller. Until then "not-started" cannot occur.
-        */}
-        <ChallengeSessionProvider
-          config={sessionConfigForChallenge(scenario.challenge)}
-          investigationStarted
-        >
+        <ChallengeJourney challenge={scenario.challenge} libraryHref={ROUTES.library} next={nextLink}>
           <SessionChallengeOverview challenge={scenario.challenge} />
           <WorkspaceClient
             challengeId={scenario.challenge.id}
@@ -38,7 +32,7 @@ export function ChallengeWorkspacePage({ scenario }: ChallengeWorkspacePageProps
             logs={scenario.logs}
             network={scenario.network}
           />
-        </ChallengeSessionProvider>
+        </ChallengeJourney>
       </main>
     </>
   );

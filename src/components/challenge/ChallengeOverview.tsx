@@ -49,7 +49,7 @@ export function ChallengeOverview({ challenge, status: investigationStatus }: Ch
             {challenge.title}
           </h1>
           <p className="max-w-3xl rounded-md border-l-2 border-danger/60 bg-surface-sunken px-3 py-1.5 text-sm leading-relaxed text-foreground/90">
-            <span className="mr-2 text-[11px] font-semibold uppercase tracking-wider text-danger/90">
+            <span className="mr-2 text-xs font-semibold uppercase tracking-wider text-danger/90">
               Incident
             </span>
             {challenge.incident}
@@ -58,7 +58,7 @@ export function ChallengeOverview({ challenge, status: investigationStatus }: Ch
 
         <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-[11px] uppercase tracking-wider text-subtle">
+            <dt className="text-xs uppercase tracking-wider text-subtle">
               Difficulty
             </dt>
             <dd className="mt-1">
@@ -66,7 +66,7 @@ export function ChallengeOverview({ challenge, status: investigationStatus }: Ch
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] uppercase tracking-wider text-subtle">
+            <dt className="text-xs uppercase tracking-wider text-subtle">
               Status
             </dt>
             <dd className="mt-1">
@@ -77,7 +77,7 @@ export function ChallengeOverview({ challenge, status: investigationStatus }: Ch
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] uppercase tracking-wider text-subtle">
+            <dt className="text-xs uppercase tracking-wider text-subtle">
               Est. time
             </dt>
             <dd className="mt-1 font-mono text-muted">

@@ -26,7 +26,7 @@ export function EvidenceReview({ evidence, error, onManage }: EvidenceReviewProp
           id={EVIDENCE_FIELD_ID}
           type="button"
           onClick={onManage}
-          className="rounded px-1.5 text-[11px] text-accent hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+          className="rounded px-1.5 text-xs text-accent hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
         >
           Manage in Notes
         </button>
@@ -44,7 +44,7 @@ export function EvidenceReview({ evidence, error, onManage }: EvidenceReviewProp
           {evidence.map((item) => (
             <li
               key={item.id}
-              className="flex items-start gap-2 rounded border border-border bg-surface-sunken px-2 py-1 font-mono text-[11px] leading-4"
+              className="flex items-start gap-2 rounded border border-border bg-surface-sunken px-2 py-1 font-mono text-xs leading-4"
             >
               <span className={`shrink-0 ${item.kindLabel === "Log" ? "text-info" : "text-accent"}`}>
                 {item.kindLabel === "Log" ? "LOG" : "NET"}
@@ -59,7 +59,7 @@ export function EvidenceReview({ evidence, error, onManage }: EvidenceReviewProp
         </ul>
       )}
       {error && (
-        <p id={errorId} className="text-[11px] text-danger">
+        <p id={errorId} className="text-xs text-danger">
           {error}
         </p>
       )}

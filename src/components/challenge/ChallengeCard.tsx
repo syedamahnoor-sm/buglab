@@ -16,7 +16,7 @@ interface ChallengeCardProps {
 /** The ID of a card's title, for naming the card from outside (e.g. a link around it). */
 export const challengeCardTitleId = (challengeId: string) => `challenge-card-${challengeId}-title`;
 
-const labelClass = "text-[11px] uppercase tracking-wider text-subtle";
+const labelClass = "text-xs uppercase tracking-wider text-subtle";
 
 /**
  * A challenge presented as a case file: a title strip, the case title and its
@@ -48,7 +48,7 @@ export function ChallengeCard({ challenge, action, titleAs: Title = "h2" }: Chal
             {challenge.title}
           </Title>
           <div className="overflow-hidden rounded-md border border-border bg-surface-sunken">
-            <p className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <p className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
               <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-danger" />
               Incident report
             </p>

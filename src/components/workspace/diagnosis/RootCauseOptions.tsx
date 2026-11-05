@@ -47,13 +47,13 @@ export function RootCauseOptions({ options, value, onChange, error }: RootCauseO
               <span className="block text-xs font-medium leading-5 text-foreground">
                 {option.label}
               </span>
-              <span className="block text-[11px] leading-4 text-subtle">{option.description}</span>
+              <span className="block text-xs leading-4 text-subtle">{option.description}</span>
             </span>
           </label>
         );
       })}
       {error && (
-        <p id={errorId} className="text-[11px] text-danger">
+        <p id={errorId} className="text-xs text-danger">
           {error}
         </p>
       )}

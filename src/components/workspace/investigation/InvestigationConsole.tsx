@@ -35,7 +35,7 @@ const BODY_ID = "investigation-console-body";
 
 function CountBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded bg-surface-raised px-1 font-mono text-[10px] text-subtle">
+    <span className="rounded bg-surface-raised px-1 font-mono text-xs text-subtle">
       {children}
     </span>
   );

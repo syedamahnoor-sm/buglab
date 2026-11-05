@@ -23,6 +23,10 @@ export default function nextConfig(phase: string): NextConfig {
       // Read by MonacoEditor; derived from the same pin as the copied files.
       MONACO_VS_PATH: monacoVsPath(readPinnedVersion()),
     },
+    async redirects() {
+      // The landing page moved from /welcome to /; keep old links working.
+      return [{ source: "/welcome", destination: "/", permanent: true }];
+    },
     async headers() {
       return [
         {

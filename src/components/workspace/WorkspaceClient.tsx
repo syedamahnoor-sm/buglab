@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getTabIds } from "@/components/ui/TabList";
 import { describeEvidence } from "@/lib/evidence";
 import { buildFileTree, collectFolderPaths } from "@/lib/file-tree";
@@ -11,6 +11,7 @@ import { DiagnosisPanel } from "./DiagnosisPanel";
 import { EditorPanel } from "./EditorPanel";
 import { FileExplorer } from "./FileExplorer";
 import { InvestigationConsole, type ConsoleTab } from "./investigation/InvestigationConsole";
+import { hasRecordedWork, useChallengeJourney } from "@/components/challenge/ChallengeJourney";
 import { useInvestigationController } from "./investigation/useInvestigationController";
 import type { PanelLayoutState } from "@/components/ui/PanelExpandToggle";
 import { WorkspaceLayout, type RightColumnFocus } from "./WorkspaceLayout";
@@ -65,6 +66,13 @@ export function WorkspaceClient({
     initiallyExpanded: collectFolderPaths(tree),
   });
   const investigation = useInvestigationController();
+
+  // The status moves from "Not started" once the learner records anything.
+  const journey = useChallengeJourney();
+  const started = hasRecordedWork(investigation);
+  useEffect(() => {
+    if (started) journey?.markInvestigationStarted();
+  }, [started, journey]);
 
   const activeFile = workspace.activePath
     ? (filesByPath.get(workspace.activePath) ?? null)

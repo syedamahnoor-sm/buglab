@@ -44,7 +44,7 @@ export function LogFilterBar({
               type="button"
               aria-pressed={enabled}
               onClick={() => onToggleLevel(level)}
-              className={`flex h-6 items-center gap-1 rounded border px-1.5 font-mono text-[11px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent ${
+              className={`flex h-6 items-center gap-1 rounded border px-1.5 font-mono text-xs focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent ${
                 enabled ? levelActiveClasses[level] : "border-border text-subtle line-through"
               }`}
             >
@@ -63,11 +63,11 @@ export function LogFilterBar({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search logs…"
-          className="h-7 w-full rounded-md border border-border bg-surface-sunken px-2 font-mono text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus:outline-none"
+          className="h-7 w-full rounded-md border border-border bg-surface-sunken px-2 font-mono text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
         />
       </label>
 
-      <p aria-live="polite" className="flex items-center gap-2 text-[11px] text-subtle">
+      <p aria-live="polite" className="flex items-center gap-2 text-xs text-subtle">
         {shownCount} of {totalCount}
         {isFiltered && (
           <button

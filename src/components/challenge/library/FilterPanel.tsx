@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   categoryCounts,
   difficultyCounts,
@@ -18,7 +19,10 @@ interface FilterPanelProps {
   idPrefix: string;
 }
 
-const groupHeading = "text-[11px] font-semibold uppercase tracking-wider text-muted";
+const groupHeading = "text-xs font-semibold uppercase tracking-wider text-muted";
+
+/** Technologies shown before "Show all": the most used ones, plus any already selected. */
+const COLLAPSED_TECHNOLOGIES = 6;
 
 function toggle<T>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -29,6 +33,17 @@ export function FilterPanel({ challenges, query, onQueryChange, idPrefix }: Filt
   const categories = categoryCounts(challenges);
   const difficulties = difficultyCounts(challenges);
   const technologies = technologyOptions(challenges);
+  const [showAllTechnologies, setShowAllTechnologies] = useState(false);
+  const mostUsed = new Set(
+    [...technologies]
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, COLLAPSED_TECHNOLOGIES)
+      .map((option) => option.label),
+  );
+  const visibleTechnologies = showAllTechnologies
+    ? technologies
+    : technologies.filter((option) => mostUsed.has(option.label) || query.technologies.includes(option.label));
+  const technologyListId = `${idPrefix}-technology-list`;
 
   const categoryButton = (id: CategoryId | null, label: string, count: number) => {
     const active = query.category === id;
@@ -86,8 +101,8 @@ export function FilterPanel({ challenges, query, onQueryChange, idPrefix }: Filt
       {technologies.length > 0 && (
         <fieldset>
           <legend className={groupHeading}>Technologies</legend>
-          <div className="mt-2 flex flex-col gap-1">
-            {technologies.map(({ label, count }) => (
+          <div id={technologyListId} className="mt-2 flex flex-col gap-1">
+            {visibleTechnologies.map(({ label, count }) => (
               <CheckboxRow
                 key={label}
                 id={`${idPrefix}-tech-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
@@ -98,6 +113,17 @@ export function FilterPanel({ challenges, query, onQueryChange, idPrefix }: Filt
               />
             ))}
           </div>
+          {technologies.length > COLLAPSED_TECHNOLOGIES && (
+            <button
+              type="button"
+              aria-expanded={showAllTechnologies}
+              aria-controls={technologyListId}
+              onClick={() => setShowAllTechnologies(!showAllTechnologies)}
+              className="mt-1 rounded-md px-2.5 py-1.5 text-left text-xs font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {showAllTechnologies ? "Show fewer technologies" : `Show all ${technologies.length} technologies`}
+            </button>
+          )}
         </fieldset>
       )}
     </div>

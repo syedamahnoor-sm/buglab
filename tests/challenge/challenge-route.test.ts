@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { createElement, isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import Home from "@/app/page";
 import ChallengePage, { ensureStatic, generateMetadata, generateStaticParams } from "@/app/challenges/[challengeId]/page";
 import { ChallengeWorkspacePage } from "@/components/challenge/ChallengeWorkspacePage";
 import { challenge001 } from "@/data/challenge-001";
@@ -29,8 +28,23 @@ describe("/challenges/[challengeId]: known challenges", () => {
     assert.equal(element.props.scenario, challenge001);
   });
 
-  test("Challenge 001 renders the same playable workspace as the home page", async () => {
-    assert.equal(renderToStaticMarkup(await page("challenge-001")), renderToStaticMarkup(createElement(Home)));
+  test("Challenge 001 renders the same playable workspace as the shared page, with the next challenge offered", async () => {
+    const [, second] = listChallengeSummaries();
+    const expected = createElement(ChallengeWorkspacePage, {
+      scenario: challenge001,
+      next: { id: second.id, number: second.number, title: second.title },
+    });
+    assert.equal(renderToStaticMarkup(await page("challenge-001")), renderToStaticMarkup(expected));
+  });
+
+  test("the next challenge is the following published one, and the last challenge has none", async () => {
+    const published = listChallengeSummaries();
+    for (const [index, summary] of published.entries()) {
+      const element = (await page(summary.id)) as ReactElement<{ next: { id: string } | null }>;
+      assert.equal(element.props.next?.id ?? null, published[index + 1]?.id ?? null, summary.id);
+    }
+    const last = (await page(published.at(-1)!.id)) as ReactElement<{ next: unknown }>;
+    assert.equal(last.props.next, null);
   });
 
   test("the workspace is given Challenge 001's ID, which diagnosis requests are sent for", async () => {

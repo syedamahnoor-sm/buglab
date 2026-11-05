@@ -17,7 +17,7 @@ export function NotesSection({ title, count, children }: NotesSectionProps) {
       <h3
         id={headingId}
         tabIndex={-1}
-        className="rounded-sm text-[11px] font-semibold uppercase tracking-wider text-muted outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
+        className="rounded-sm text-xs font-semibold uppercase tracking-wider text-muted outline-none focus-visible:ring-1 focus-visible:ring-accent/70"
       >
         {title} <span className="font-normal text-subtle">({count})</span>
       </h3>
@@ -27,7 +27,7 @@ export function NotesSection({ title, count, children }: NotesSectionProps) {
 }
 
 export const removeButtonClass =
-  "shrink-0 rounded px-1.5 text-[11px] text-subtle hover:bg-surface-raised hover:text-danger focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent";
+  "shrink-0 rounded px-1.5 text-xs text-subtle hover:bg-surface-raised hover:text-danger focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent";
 
 export function formatClockTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], {

@@ -36,7 +36,7 @@ export function Panel({
       className={`flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-surface ${className}`}
     >
       <header className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border bg-surface-raised px-3">
-        <h2 className="flex min-w-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
           {icon && <span className="text-subtle">{icon}</span>}
           <span className="truncate">{title}</span>
         </h2>
@@ -49,7 +49,7 @@ export function Panel({
       </div>
       {footer && (
         <footer
-          className={`shrink-0 border-t border-border bg-surface-raised px-3 py-1.5 text-[11px] text-subtle ${collapsedClass}`}
+          className={`shrink-0 border-t border-border bg-surface-raised px-3 py-1.5 text-xs text-subtle ${collapsedClass}`}
         >
           {footer}
         </footer>

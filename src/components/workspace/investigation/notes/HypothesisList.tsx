@@ -60,7 +60,7 @@ export function HypothesisList({ hypotheses, onAdd, onSetStatus, onRemove }: Hyp
                   onChange={(event) =>
                     onSetStatus(hypothesis.id, event.target.value as HypothesisStatus)
                   }
-                  className={`h-6 rounded border bg-surface-sunken px-1 text-[11px] focus:outline-none focus-visible:border-accent ${statusClasses[hypothesis.status]}`}
+                  className={`h-6 rounded border bg-surface-sunken px-1 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent ${statusClasses[hypothesis.status]}`}
                 >
                   {statusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
