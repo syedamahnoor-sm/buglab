@@ -79,7 +79,8 @@ describe("a larger catalog", () => {
     assert.deepEqual(sectionHeadings(markup), ["New to BugLab? Start here", "All investigations"]);
     assert.equal(markup.match(/<article/g)?.length, catalog.length);
     assert.match(markup, /<a [^>]*href="\/challenges\/challenge-002"[^>]*>Open Challenge 002/);
-    assert.ok(markup.includes("· Beginner · ~"), "the pointer states the difficulty and the authored estimate");
+    const aside = markup.slice(markup.indexOf('<aside aria-labelledby="start-here-heading"'), markup.indexOf("</aside>"));
+    assert.ok(aside.includes(">Beginner</span>") && aside.includes("Estimated time: </span>~"), "the pointer states the difficulty and the authored estimate");
     for (const challenge of catalog) {
       const expected = challenge.id === "challenge-002" ? 2 : 1;
       assert.equal(markup.split(`href="/challenges/${challenge.id}"`).length - 1, expected, `${challenge.id}: one card (plus the start-here link)`);
@@ -228,8 +229,12 @@ describe("the shipped catalog's start-here pointer", () => {
     const markup = view(shipped);
     const firstBeginner = shipped.find((challenge) => challenge.difficulty === "beginner")!;
     const aside = markup.slice(markup.indexOf('<aside aria-labelledby="start-here-heading"'), markup.indexOf("</aside>"));
-    assert.ok(aside.includes(`Challenge ${firstBeginner.number} · ${firstBeginner.title}`));
-    assert.ok(aside.includes(`· Beginner · ~${firstBeginner.estimatedMinutes} min`));
-    assert.match(aside, new RegExp(`href="/challenges/${firstBeginner.id}"`));
+    assert.ok(aside.includes(`>${firstBeginner.title}<`), "its title");
+    assert.ok(aside.includes(firstBeginner.description.replaceAll("'", "&#x27;")), "its own description");
+    assert.ok(aside.includes(`>Challenge ${firstBeginner.number}<`), "its number");
+    assert.match(aside, /<span aria-hidden="true" class="[^"]*"><\/span>Beginner<\/span>/, "its real difficulty");
+    assert.ok(aside.includes(`<span class="sr-only">Estimated time: </span>~${firstBeginner.estimatedMinutes} min`), "its authored estimate");
+    assert.match(aside, new RegExp(`href="/challenges/${firstBeginner.id}"[^>]*>Open Challenge ${firstBeginner.number}`));
+    assert.doesNotMatch(aside, /rating|learners|completion|popular|%|score/i);
   });
 });

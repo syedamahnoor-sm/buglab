@@ -1,7 +1,11 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { categoryCounts, difficultyCounts, technologyOptions, type DiscoveryQuery } from "@/lib/catalog/discovery";
 import type { CategoryId, PublicChallenge } from "@/types/catalog";
 import type { Difficulty } from "@/types/workspace";
 import { difficultyDisplay } from "../difficulty";
+import { categoryAccent, CATEGORY_SHORT_LABEL } from "./category-style";
 import { CategoryIcon } from "./CategoryIcon";
 
 interface FilterProps {
@@ -12,6 +16,12 @@ interface FilterProps {
 }
 
 const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+
+/** Shared look for the toggle filters: recessed when off, accent-tinted when on. */
+const toggleBase =
+  "group relative flex items-center gap-1.5 whitespace-nowrap border text-sm transition-[background-color,border-color,color,scale] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-colors motion-reduce:active:scale-100";
+const toggleOn = "border-accent/60 bg-accent/15 font-medium text-foreground";
+const toggleOff = "border-card-border bg-background/60 text-muted hover:border-card-border-hover hover:bg-card hover:text-foreground";
 
 export function toggle<T>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
@@ -26,26 +36,77 @@ const countLabel = (count: number) => (
 );
 
 /**
- * The six categories as one row of toggle buttons, always visible. On narrow
- * screens the row scrolls sideways inside itself, never the page.
+ * Which ends of a sideways-scrolling row have more content past them, so the
+ * row can fade only where something is hidden. Measured on scroll and resize.
+ */
+function useOverflowEdges<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [edges, setEdges] = useState({ start: false, end: false });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = () => {
+      const start = element.scrollLeft > 1;
+      const end = element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+      setEdges((current) => (current.start === start && current.end === end ? current : { start, end }));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    element.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      observer.disconnect();
+      element.removeEventListener("scroll", measure);
+    };
+  }, []);
+  return [ref, edges] as const;
+}
+
+const FADE = "32px";
+const fadeMask = ({ start, end }: { start: boolean; end: boolean }) => {
+  if (!start && !end) return undefined;
+  const mask = `linear-gradient(to right, ${start ? `transparent, #000 ${FADE}` : "#000"}, ${end ? `#000 calc(100% - ${FADE}), transparent` : "#000"})`;
+  return { maskImage: mask, WebkitMaskImage: mask };
+};
+
+/**
+ * The categories as one row of toggle buttons. Each shows a short label (the
+ * full category name is its accessible name and tooltip), so on a laptop the
+ * whole row fits. Where it does not, the row scrolls sideways inside itself,
+ * never the page, and fades only at an end with more categories past it. The
+ * selected category is scrolled into view.
  */
 export function CategoryBar({ challenges, query, onQueryChange }: FilterProps) {
-  const button = (id: CategoryId | null, label: string, count: number) => {
+  const [row, edges] = useOverflowEdges<HTMLUListElement>();
+  useEffect(() => {
+    const list = row.current;
+    const selected = list?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!list || !selected) return;
+    const left = selected.offsetLeft - list.offsetLeft;
+    if (left < list.scrollLeft || left + selected.offsetWidth > list.scrollLeft + list.clientWidth) {
+      list.scrollTo({ left: Math.max(0, left - 24) });
+    }
+  }, [row, query.category]);
+
+  const button = (id: CategoryId | null, label: string, short: string, count: number) => {
     const active = query.category === id;
     return (
-      <li key={id ?? "all"} className="shrink-0">
+      <li key={id ?? "all"} className="shrink-0" style={id ? categoryAccent(id) : undefined}>
         <button
           type="button"
           aria-pressed={active}
+          title={short === label ? undefined : label}
           onClick={() => onQueryChange({ ...query, category: id })}
-          className={`group relative flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-colors duration-150 motion-reduce:transition-none ${focusRing} ${
-            active
-              ? "border-accent/50 bg-accent/10 font-medium text-foreground"
-              : "border-border bg-surface text-muted hover:border-border-strong hover:text-foreground"
-          }`}
+          className={`${toggleBase} h-9 rounded-full px-3.5 ${focusRing} ${active ? toggleOn : toggleOff}`}
         >
-          <CategoryIcon category={id ?? "all"} className={active ? "text-accent" : "text-subtle"} />
-          {label}
+          <CategoryIcon category={id ?? "all"} className={active ? "text-accent" : id ? "text-[var(--cat)]" : "text-subtle"} />
+          {short === label ? (
+            label
+          ) : (
+            <>
+              <span aria-hidden="true">{short}</span>
+              <span className="sr-only">{label}</span>
+            </>
+          )}
           {countLabel(count)}
         </button>
       </li>
@@ -53,10 +114,12 @@ export function CategoryBar({ challenges, query, onQueryChange }: FilterProps) {
   };
 
   return (
-    <nav aria-label="Categories" className="-mx-4 min-w-0 sm:mx-0">
-      <ul className="flex w-full max-w-[100vw] gap-1.5 overflow-x-auto px-4 pb-1 sm:max-w-none sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
-        {button(null, "All", challenges.length)}
-        {categoryCounts(challenges).map((category) => button(category.id, category.label, category.count))}
+    <nav aria-label="Categories" className="-mx-3 min-w-0 sm:-mx-1">
+      <ul ref={row} style={fadeMask(edges)} className="-my-1 flex w-full gap-1.5 overflow-x-auto px-3 py-1 [scrollbar-width:none] sm:px-1">
+        {button(null, "All", "All", challenges.length)}
+        {categoryCounts(challenges).map((category) =>
+          button(category.id, category.label, CATEGORY_SHORT_LABEL[category.id], category.count),
+        )}
       </ul>
     </nav>
   );
@@ -65,7 +128,7 @@ export function CategoryBar({ challenges, query, onQueryChange }: FilterProps) {
 /** Difficulty as toggle buttons: any combination, none selected means all. */
 export function DifficultyFilter({ challenges, query, onQueryChange }: FilterProps) {
   return (
-    <div role="group" aria-labelledby="difficulty-label" className="flex flex-wrap items-center gap-1.5">
+    <div role="group" aria-labelledby="difficulty-label" className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
       <span id="difficulty-label" className="mr-1 text-xs font-medium uppercase tracking-wider text-subtle">
         Difficulty
       </span>
@@ -79,9 +142,7 @@ export function DifficultyFilter({ challenges, query, onQueryChange }: FilterPro
             aria-pressed={active}
             disabled={count === 0 && !active}
             onClick={() => onQueryChange({ ...query, difficulties: toggle<Difficulty>(query.difficulties, id) })}
-            className={`group relative flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors duration-150 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50 ${focusRing} ${
-              active ? "border-accent/50 bg-accent/10 text-foreground" : "border-border bg-surface text-muted hover:text-foreground"
-            }`}
+            className={`${toggleBase} h-9 rounded-lg px-3 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing} ${active ? toggleOn : toggleOff}`}
           >
             <span aria-hidden="true" className={`size-1.5 rounded-full bg-current ${difficultyDot[display.tone]}`} />
             {display.label}
@@ -115,7 +176,7 @@ export function TechnologyFilter({ challenges, query, onQueryChange, idPrefix }:
             <label
               key={label}
               htmlFor={id}
-              className="flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-sm text-muted hover:bg-surface-raised hover:text-foreground has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent"
+              className="flex min-h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-sm text-muted transition-colors duration-150 hover:bg-card hover:text-foreground has-[:checked]:text-foreground has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-accent"
             >
               <input
                 id={id}
