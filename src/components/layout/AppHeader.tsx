@@ -4,7 +4,7 @@ import { BugIcon } from "@/components/ui/icons";
 import { ROUTES } from "@/lib/challenge-routes";
 
 /** The app section a page belongs to. */
-export type AppSection = "challenges" | "workspace";
+export type AppSection = "challenges" | "workspace" | "journal";
 
 interface AppHeaderProps {
   /** The section the current page belongs to; it is marked as the current page. */
@@ -26,6 +26,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: "Challenges", section: "challenges", href: ROUTES.library },
   { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true },
+  { label: "Journal", section: "journal", href: ROUTES.journal },
 ];
 
 // Below sm, items and gaps tighten so the items fit at 320px without the nav

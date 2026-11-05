@@ -117,6 +117,7 @@ describe("who may read the catalog", () => {
     assert.deepEqual(users, [
       "app/challenges/[challengeId]/page.tsx",
       "app/challenges/page.tsx",
+      "app/journal/page.tsx",
       "lib/challenge-catalog.ts",
       "proxy.ts",
       "server/admin/challenges.ts",
