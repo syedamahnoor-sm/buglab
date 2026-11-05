@@ -2,6 +2,7 @@ import type { Monaco } from "@monaco-editor/react";
 import type { typescript } from "monaco-editor";
 
 export const BUGLAB_THEME = "buglab-dark";
+export const BUGLAB_LIGHT_THEME = "buglab-light";
 
 // Monaco 0.55+ moved TS/JS language options to a top-level `typescript`
 // namespace, which @monaco-editor/react's `Monaco` type doesn't include yet.
@@ -74,9 +75,60 @@ export const BUGLAB_THEME_COLORS: Record<string, string> = {
   "scrollbarSlider.activeBackground": "#2e3847",
 };
 
+/*
+ * The light editor: the same grammar rules with each colour swapped for a
+ * deeper partner that reads on the light editor background (>= 4.5:1, checked
+ * in tests/ui/accessibility.test.ts). One map keeps the two themes in step.
+ */
+const LIGHT_SYNTAX: Record<string, string> = {
+  "7d8799": "5f6e84", // comments, timestamps, debug
+  c4a7ff: "6d3fd6", // keywords, operators, attributes
+  "9ee6a8": "18794e", // strings, success
+  fbbf24: "975108", // numbers, annotations, warnings
+  "67e8f9": "0b6a80", // types, predefined, info
+  d6dce6: "14233c", // identifiers
+  "8a94a6": "52627b", // delimiters, metadata
+  "6ea8fe": "1d4ed8", // keys, tags, methods
+  f87171: "b3202a", // errors
+  "4ade80": "18794e", // success statuses
+};
+
+export const BUGLAB_LIGHT_THEME_RULES = BUGLAB_THEME_RULES.map((rule) =>
+  "foreground" in rule && rule.foreground ? { ...rule, foreground: LIGHT_SYNTAX[rule.foreground] ?? rule.foreground } : rule,
+);
+
+// Colours mirror the light tokens in src/app/globals.css.
+export const BUGLAB_LIGHT_THEME_COLORS: Record<string, string> = {
+  "editor.background": "#f6f8fc",
+  "editor.foreground": "#14233c",
+  "editorGutter.background": "#f6f8fc",
+  "editorLineNumber.foreground": "#5a6a82",
+  "editorLineNumber.activeForeground": "#14233c",
+  "editor.lineHighlightBackground": "#e3eaf680",
+  "editor.lineHighlightBorder": "#00000000",
+  "editor.selectionBackground": "#1d4ed82e",
+  "editor.inactiveSelectionBackground": "#1d4ed81a",
+  "editorIndentGuide.background1": "#dce4f0",
+  "editorIndentGuide.activeBackground1": "#c3cfe0",
+  "editorCursor.foreground": "#1d4ed8",
+  "editorWidget.background": "#ffffff",
+  "editorWidget.border": "#c3cfe0",
+  "scrollbarSlider.background": "#c3cfe080",
+  "scrollbarSlider.hoverBackground": "#a9b8cdaa",
+  "scrollbarSlider.activeBackground": "#a9b8cd",
+  // Bracket-pair colours: Monaco's light defaults include a green under 4.5:1, so they are set here.
+  "editorBracketHighlight.foreground1": "#1d4ed8",
+  "editorBracketHighlight.foreground2": "#6d3fd6",
+  "editorBracketHighlight.foreground3": "#975108",
+  "editorBracketHighlight.foreground4": "#1d4ed8",
+  "editorBracketHighlight.foreground5": "#6d3fd6",
+  "editorBracketHighlight.foreground6": "#975108",
+  "editorBracketHighlight.unexpectedBracket.foreground": "#b3202a",
+};
+
 let configured = false;
 
-/** Registers BugLab's theme, the `log` language, and TS options. Idempotent. */
+/** Registers BugLab's dark and light themes, the `log` language, and TS options. Idempotent. */
 export function setupMonaco(monaco: Monaco) {
   if (configured) return;
   configured = true;
@@ -86,6 +138,12 @@ export function setupMonaco(monaco: Monaco) {
     inherit: true,
     rules: BUGLAB_THEME_RULES,
     colors: BUGLAB_THEME_COLORS,
+  });
+  monaco.editor.defineTheme(BUGLAB_LIGHT_THEME, {
+    base: "vs",
+    inherit: true,
+    rules: BUGLAB_LIGHT_THEME_RULES,
+    colors: BUGLAB_LIGHT_THEME_COLORS,
   });
 
   monaco.languages.register({ id: "log", extensions: [".log"] });

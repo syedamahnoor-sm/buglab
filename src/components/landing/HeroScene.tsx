@@ -43,7 +43,7 @@ function Layer({
   return (
     <div className={`${styles.depth} ${className}`} style={{ "--depth": depth } as Vars}>
       <div
-        className={`overflow-hidden rounded-xl border border-border-strong bg-surface/95 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.85)] backdrop-blur ${enterRight}`}
+        className={`overflow-hidden rounded-xl border border-border-strong bg-surface/95 shadow-[0_24px_60px_-20px_color-mix(in_oklab,var(--color-ink)_85%,transparent)] backdrop-blur ${enterRight}`}
         style={{ transitionDelay: `${enterAt}ms` }}
       >
         {children}

@@ -2,6 +2,8 @@
 export const ROUTES = {
   home: "/",
   library: "/challenges",
+  /** The workspace's own page: the welcome screen when no challenge is open. */
+  workspace: "/workspace",
 } as const;
 
 /** The workspace URL for a challenge, from its catalog ID. */

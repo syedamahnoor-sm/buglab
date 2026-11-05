@@ -21,7 +21,7 @@ const focusRing = "focus-visible:outline focus-visible:outline-2 focus-visible:o
 const toggleBase =
   "group relative flex items-center gap-1.5 whitespace-nowrap border text-sm transition-[background-color,border-color,color,scale] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-colors motion-reduce:active:scale-100";
 const toggleOn = "border-accent/60 bg-accent/15 font-medium text-foreground";
-const toggleOff = "border-card-border bg-background/60 text-muted hover:border-card-border-hover hover:bg-card hover:text-foreground";
+const toggleOff = "border-card-border bg-field/60 text-muted hover:border-card-border-hover hover:bg-hover-fill hover:text-foreground";
 
 export function toggle<T>(values: readonly T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { BugIcon } from "@/components/ui/icons";
 import { ROUTES } from "@/lib/challenge-routes";
 
@@ -10,26 +11,31 @@ interface AppHeaderProps {
   current: AppSection;
 }
 
-type NavItem =
-  | { label: string; kind: "link"; section: AppSection; href: string }
-  // A section with no page of its own: current on its own pages, otherwise
-  // shown as unavailable with the reason in `hint`.
-  | { label: string; kind: "section"; section: AppSection; hint: string };
+interface NavItem {
+  label: string;
+  section: AppSection;
+  href: string;
+  /**
+   * When current, show the item as text rather than a link. The workspace
+   * does this: inside an open challenge, a link to the workspace page would
+   * only take the learner away from their investigation.
+   */
+  textWhenCurrent?: boolean;
+}
 
 const navItems: NavItem[] = [
-  { label: "Challenges", kind: "link", section: "challenges", href: ROUTES.library },
-  { label: "Workspace", kind: "section", section: "workspace", hint: "Open a challenge to use the workspace" },
+  { label: "Challenges", section: "challenges", href: ROUTES.library },
+  { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true },
 ];
 
 // Below sm, items and gaps tighten so the items fit at 320px without the nav
 // scrolling; from sm up the header is unchanged.
 const itemClass = "block rounded-md px-2 py-1.5 sm:px-3";
-const currentClass = "block rounded-md bg-surface-raised px-2 py-1.5 font-medium text-foreground sm:px-3";
-const unavailableClass = "flex cursor-default select-none items-center gap-1.5 px-2 py-1.5 text-subtle sm:px-3";
+const currentClass = "block rounded-md bg-nav-current px-2 py-1.5 font-medium text-foreground sm:px-3";
 
 export function AppHeader({ current }: AppHeaderProps) {
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-background/90 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-border bg-nav/90 shadow-nav backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:gap-8 sm:px-6">
         <Link
           href={ROUTES.home}
@@ -58,6 +64,8 @@ export function AppHeader({ current }: AppHeaderProps) {
             ))}
           </ul>
         </nav>
+
+        <ThemeToggle />
       </div>
     </header>
   );
@@ -66,25 +74,21 @@ export function AppHeader({ current }: AppHeaderProps) {
 function NavEntry({ item, current }: { item: NavItem; current: AppSection }) {
   const isCurrent = item.section === current;
 
-  if (item.kind === "link") {
+  if (isCurrent && item.textWhenCurrent) {
     return (
-      <Link
-        href={item.href}
-        aria-current={isCurrent ? "page" : undefined}
-        className={`${isCurrent ? currentClass : `${itemClass} text-muted transition-colors hover:bg-surface-raised hover:text-foreground`} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
-      >
+      <span aria-current="page" className={currentClass}>
         {item.label}
-      </Link>
+      </span>
     );
   }
 
-  return isCurrent ? (
-    <span aria-current="page" className={currentClass}>
+  return (
+    <Link
+      href={item.href}
+      aria-current={isCurrent ? "page" : undefined}
+      className={`${isCurrent ? currentClass : `${itemClass} text-muted transition-colors hover:bg-surface-raised hover:text-foreground`} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
+    >
       {item.label}
-    </span>
-  ) : (
-    <span aria-disabled="true" title={item.hint} className={unavailableClass}>
-      {item.label}
-    </span>
+    </Link>
   );
 }

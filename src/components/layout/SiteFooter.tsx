@@ -18,7 +18,7 @@ export function SiteFooter() {
             <p className="flex items-center gap-2.5">
               <span
                 aria-hidden="true"
-                className="grid size-8 place-items-center rounded-lg border border-accent/25 bg-accent/10 text-accent"
+                className="grid size-8 place-items-center rounded-lg border border-footer-accent/25 bg-footer-accent/10 text-footer-accent"
               >
                 <BugIcon />
               </span>
@@ -27,7 +27,7 @@ export function SiteFooter() {
             <p className="mt-4 text-sm font-medium text-footer-text">Investigate. Understand. Remember.</p>
             <p className="mt-1 text-sm">Built for curious developers.</p>
           </div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent">Learning That Sticks.</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-footer-accent">Learning That Sticks.</p>
         </div>
         <p className="border-t border-footer-border pt-6 text-xs">© 2026 BugLab</p>
       </div>

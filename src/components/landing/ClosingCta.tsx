@@ -62,7 +62,7 @@ export function ClosingCta() {
           />
           <article
             aria-labelledby="handoff-title"
-            className="relative rounded-2xl border border-border-strong bg-surface/95 shadow-[0_40px_90px_-40px_rgb(0_0_0/0.9)] backdrop-blur"
+            className="relative rounded-2xl border border-border-strong bg-surface/95 shadow-[0_40px_90px_-40px_color-mix(in_oklab,var(--color-ink)_90%,transparent)] backdrop-blur"
           >
             {/* Where the trace from the dossier lands. */}
             <span
