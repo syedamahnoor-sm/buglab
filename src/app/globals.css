@@ -3,7 +3,8 @@
 /*
  * BugLab dark theme.
  * Raw palette lives on :root; @theme exposes it to Tailwind as utilities
- * (e.g. bg-surface, border-border, text-muted).
+ * (e.g. bg-surface, border-border, text-muted). A second theme redefines the
+ * :root values; components only ever name the semantic tokens.
  */
 :root {
   color-scheme: dark;
@@ -25,6 +26,40 @@
   --warning: #fbbf24;
   --danger: #f87171;
   --info: #67e8f9;
+
+  /*
+   * Elevated content: cards and panels that sit on the page background.
+   * Clearly lighter than the page and edged by a border with a faint top
+   * highlight, so they read as raised without relying on shadow alone.
+   */
+  --card: #151b26;
+  --card-hover: #19212d;
+  --card-border: #283244;
+  --card-border-hover: #3b4b64;
+  --card-highlight: rgb(255 255 255 / 0.05);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 10px 28px -16px rgb(0 0 0 / 0.7);
+  --card-shadow-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 20px 40px -18px rgb(0 0 0 / 0.85);
+  --panel: #0f141c;
+  --panel-border: #1f2734;
+  --canvas-glow: color-mix(in oklab, var(--accent) 9%, transparent);
+
+  /*
+   * Category identity: one restrained hue per category, used only for small
+   * accents (icon tile, hover edge). Chosen away from the green, amber and red
+   * that mean difficulty, so the two never read as the same signal.
+   */
+  --cat-authentication: #b9a2f5;
+  --cat-api: #6fd6c0;
+  --cat-frontend: #8fa0ff;
+  --cat-database: #eba0cb;
+  --cat-security: #f2a882;
+  --cat-performance: #82cdf2;
+
+  /* The site footer: near-black, a step below the page. */
+  --footer: #080a0f;
+  --footer-border: #161c27;
+  --footer-text: #e8ecf3;
+  --footer-muted: #8a94a6;
 }
 
 @theme inline {
@@ -42,8 +77,68 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-info: var(--info);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-card-border: var(--card-border);
+  --color-card-border-hover: var(--card-border-hover);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
+  --color-footer: var(--footer);
+  --color-footer-border: var(--footer-border);
+  --color-footer-text: var(--footer-text);
+  --color-footer-muted: var(--footer-muted);
+  --shadow-card: inset 0 1px 0 var(--card-highlight), var(--card-shadow);
+  --shadow-card-hover: inset 0 1px 0 var(--card-highlight), var(--card-shadow-hover);
+  --animate-rise: rise 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* A short rise for content that appears. Off under reduced motion. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}
+
+/*
+ * Tints derived from an element's category hue (`--cat`, set inline by
+ * categoryAccent): a soft fill, a stronger fill, a ring and a border edge.
+ */
+.category-accent {
+  --cat-tint: color-mix(in oklab, var(--cat) 12%, transparent);
+  --cat-tint-strong: color-mix(in oklab, var(--cat) 18%, transparent);
+  --cat-ring: color-mix(in oklab, var(--cat) 28%, transparent);
+  --cat-edge: color-mix(in oklab, var(--cat) 38%, var(--card-border));
+}
+
+/*
+ * The library's static fallback holds every card so the page works without
+ * JavaScript. When scripts run, it shows only the first page (PAGE_SIZE in
+ * library/progressive.ts), matching what the interactive grid shows next, so
+ * the hand-over does not make the page jump.
+ */
+@media (scripting: enabled) {
+  .library-static-grid > li:nth-child(n + 10) {
+    display: none;
+  }
+}
+
+/* The featured challenge's light: the accent glowing from its top-left corner. */
+.featured-glow {
+  background-image: radial-gradient(ellipse 55% 140% at 0% 0%, var(--canvas-glow), transparent 70%);
+}
+
+/* A soft wash of the accent behind the top of the library, fading into the page. */
+.library-canvas {
+  background-image: radial-gradient(ellipse 70% 440px at 50% -120px, var(--canvas-glow), transparent 75%);
 }
 
 body {
