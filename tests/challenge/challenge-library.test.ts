@@ -23,31 +23,35 @@ const solo = shipped.filter((challenge) => challenge.id === "challenge-001");
 const view = (challenges: PublicChallenge[], query: Partial<DiscoveryQuery> = {}) =>
   renderToStaticMarkup(createElement(ExplorerView, { challenges, query: { ...EMPTY_QUERY, ...query }, onQueryChange: () => {} }));
 const headings = (markup: string) => [...markup.matchAll(/<h2 id="[^"]+"[^>]*>([^<]+)</g)].map(([, text]) => text);
-const sectionHeadings = (markup: string) => headings(markup).filter((heading) => !["Categories", "Filters"].includes(heading));
+const sectionHeadings = (markup: string) => headings(markup).filter((heading) => heading !== "Filter by technology");
+/** The result count as a learner reads it. */
+const resultCount = (markup: string) => markup.match(/<p id="challenge-results"[^>]*>([\s\S]*?)<\/p>/)?.[1].replace(/<[^>]+>/g, "");
+const categoryBar = (markup: string) => {
+  const start = markup.indexOf('<nav aria-label="Categories"');
+  return markup.slice(start, markup.indexOf("</nav>", start));
+};
 const source = (path: string) => readFileSync(new URL(`../../src/${path}`, import.meta.url), "utf8");
 
 describe("discovery sections with a catalog of Challenge 001 alone", () => {
   const markup = view(solo);
 
-  test("Challenge 001 is suggested as the place to start, with a link, not a second copy of its card", () => {
-    assert.match(markup, /<aside aria-labelledby="start-here-heading"/);
-    assert.ok(markup.includes("New to BugLab? Start here"));
-    assert.match(markup, /<a [^>]*href="\/challenges\/challenge-001"[^>]*>Open Challenge 001/);
+  test("with no beginner challenge there is no start-here pointer, only the one card", () => {
+    assert.doesNotMatch(markup, /start-here-heading/, "Challenge 001 is intermediate, so it is not offered as the beginner start");
     assert.equal(markup.match(/<article/g)?.length, 1, "the card appears once");
     assert.ok(markup.includes(solo[0].description), "the card shows the listing description");
   });
 
   test("one collection: no recommendation, beginner or progress sections, and no progress claims", () => {
-    assert.deepEqual(sectionHeadings(markup), ["New to BugLab? Start here", "All investigations"]);
+    assert.deepEqual(sectionHeadings(markup), ["All investigations"]);
     assert.doesNotMatch(markup, /Recommended for you|Beginner-friendly|Continue investigating|in progress/i);
   });
 
   test("categories and counts come from the catalog, with no empty categories", () => {
-    const sidebar = markup.slice(markup.indexOf('aria-label="Filters"'), markup.indexOf("</aside>"));
-    assert.match(sidebar, /aria-pressed="true"[^>]*>[\s\S]*?All challenges[\s\S]*?>1</);
-    assert.match(sidebar, />Authentication &amp; Authorization<[\s\S]*?>1</);
-    assert.doesNotMatch(sidebar, /APIs|Databases|Frontend|Performance|Security/);
-    assert.ok(markup.includes(">1 challenge available<"));
+    const bar = categoryBar(markup);
+    assert.match(bar, /aria-pressed="true"[^>]*>[\s\S]*?All[\s\S]*?>1</);
+    assert.match(bar, /Authentication &amp; Authorization[\s\S]*?>1</);
+    assert.doesNotMatch(bar, /APIs|Databases|Frontend|Performance|Security/);
+    assert.match(resultCount(markup) ?? "", /^1 challenges?$/);
   });
 
   test("no fabricated metrics, ratings or learner counts", () => {
@@ -70,29 +74,34 @@ describe("a larger catalog", () => {
     fixtureChallenge("challenge-003", { difficulty: "advanced", category: "frontend", technologies: ["React"] }),
   ];
 
-  test("every challenge appears exactly once, in the one collection", () => {
+  test("every challenge appears exactly once; the start-here pointer leads to the first beginner challenge", () => {
     const markup = view(catalog);
     assert.deepEqual(sectionHeadings(markup), ["New to BugLab? Start here", "All investigations"]);
     assert.equal(markup.match(/<article/g)?.length, catalog.length);
+    assert.match(markup, /<a [^>]*href="\/challenges\/challenge-002"[^>]*>Open Challenge 002/);
+    assert.ok(markup.includes("· Beginner · ~"), "the pointer states the difficulty and the authored estimate");
     for (const challenge of catalog) {
-      assert.equal(markup.split(`href="/challenges/${challenge.id}"`).length - 1, challenge.featured ? 2 : 1, `${challenge.id}: one card (plus the start-here link if featured)`);
+      const expected = challenge.id === "challenge-002" ? 2 : 1;
+      assert.equal(markup.split(`href="/challenges/${challenge.id}"`).length - 1, expected, `${challenge.id}: one card (plus the start-here link)`);
     }
   });
 
   test("filtered: only results, with chips, a count and Clear filters", () => {
     const markup = view(catalog, { difficulties: ["beginner"], technologies: ["Go"] });
-    assert.deepEqual(sectionHeadings(markup), ["Results"]);
-    assert.ok(markup.includes(">1 of 3 challenges<"));
+    assert.deepEqual(sectionHeadings(markup), ["Matching investigations"]);
+    assert.equal(resultCount(markup), "1 of 3 challenges");
     assert.match(markup, /<ul aria-label="Active filters"/);
     assert.ok(markup.includes("Remove filter: </span>Beginner"));
     assert.ok(markup.includes("Remove filter: </span>Go"));
-    assert.ok(markup.includes(">Clear filters<"));
+    assert.ok(markup.includes(">Clear all<"));
+    assert.doesNotMatch(markup, /start-here-heading/, "the start-here pointer is for the unfiltered view only");
   });
 
   test("no results: a clear state and a way out", () => {
     const markup = view(catalog, { q: "kubernetes" });
     assert.ok(markup.includes("No challenges match these filters"));
-    assert.ok(markup.includes(">0 of 3 challenges<"));
+    assert.equal(resultCount(markup), "0 of 3 challenges");
+    assert.ok(markup.includes(">Clear all filters<"));
     assert.doesNotMatch(markup, /<article/);
   });
 });
@@ -116,17 +125,19 @@ describe("accessibility", () => {
     assert.match(markup, /<p id="challenge-results" aria-live="polite"/);
   });
 
-  test("filters are grouped and named; categories are toggle buttons", () => {
-    assert.match(markup, /<legend[^>]*>Difficulty<\/legend>/);
+  test("filters are grouped and named; categories and difficulties are toggle buttons", () => {
+    assert.match(markup, /<nav aria-label="Categories"/);
+    assert.equal(categoryBar(markup).match(/<button type="button" aria-pressed="(true|false)"/g)?.length, 7, "All plus six categories");
+    assert.match(markup, /<div role="group" aria-labelledby="difficulty-label"/);
+    assert.match(markup, /<span id="difficulty-label"[^>]*>Difficulty<\/span>/);
     assert.match(markup, /<legend[^>]*>Technologies<\/legend>/);
-    assert.match(markup, /<nav aria-labelledby="sidebar-categories"/);
-    assert.match(markup, /<button type="button" aria-pressed="(true|false)"/);
   });
 
-  test("the mobile drawer is a named dialog with a close button, and every id is unique", () => {
+  test("the technology drawer is a named dialog with a close button, and every id is unique", () => {
     assert.match(markup, /<dialog aria-labelledby="filters-drawer-heading"/);
-    assert.match(markup, /aria-label="Close filters"/);
-    assert.match(markup, /aria-haspopup="dialog"/);
+    assert.match(markup, /<h2 id="filters-drawer-heading"[^>]*>Filter by technology<\/h2>/);
+    assert.match(markup, /aria-label="Close"/);
+    assert.match(markup, /<button type="button" aria-haspopup="dialog"[^>]*>[\s\S]*?Technologies/);
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id);
     assert.equal(new Set(ids).size, ids.length, "duplicate ids");
   });
@@ -151,7 +162,7 @@ describe("page and boundaries", () => {
     for (const path of [
       "components/challenge/library/ExplorerView.tsx",
       "components/challenge/library/ChallengeExplorer.tsx",
-      "components/challenge/library/FilterPanel.tsx",
+      "components/challenge/library/LibraryFilters.tsx",
       "components/challenge/library/DiscoveryCard.tsx",
     ]) {
       assert.doesNotMatch(source(path), /@\/lib\/challenge-catalog|@\/data\/catalog["']|@\/data\/challenge-|@\/server\/|answer-key/, path);
@@ -160,19 +171,65 @@ describe("page and boundaries", () => {
 });
 
 describe("technology filters", () => {
-  const sidebar = (markup: string) => markup.slice(markup.indexOf('aria-label="Filters"'), markup.indexOf("</aside>"));
-  const technologyBoxes = (markup: string) => sidebar(markup).match(/id="sidebar-tech-/g)?.length ?? 0;
+  const drawer = (markup: string) => markup.slice(markup.indexOf("<dialog"), markup.indexOf("</dialog>"));
 
-  test("show the most used six by default, behind a labelled Show all control", () => {
+  test("the drawer lists every technology in the catalog, with counts", () => {
     const markup = view(shipped);
-    assert.equal(technologyBoxes(markup), 6);
-    assert.match(sidebar(markup), /<button type="button" aria-expanded="false" aria-controls="sidebar-technology-list"[^>]*>Show all \d+ technologies</);
+    const technologies = new Set(shipped.flatMap((challenge) => challenge.technologies.map((t) => t.toLowerCase())));
+    assert.equal(drawer(markup).match(/id="drawer-tech-/g)?.length, technologies.size);
   });
 
-  test("a selected technology stays visible even when it is not among the six", () => {
-    const rare = "Helm";
-    const markup = view(shipped, { technologies: [rare] });
-    assert.match(sidebar(markup), /id="sidebar-tech-helm"[^>]*checked=""/);
-    assert.equal(technologyBoxes(markup), 7);
+  test("a selected technology is checked, counted on the toolbar button and shown as a chip", () => {
+    const markup = view(shipped, { technologies: ["Helm"] });
+    assert.match(drawer(markup), /id="drawer-tech-helm"[^>]*checked=""/);
+    assert.match(markup, /Technologies<span[^>]*>1<span class="sr-only"> selected<\/span>/);
+    assert.ok(markup.includes("Remove filter: </span>Helm"));
+  });
+});
+
+describe("challenge cards", () => {
+  test("show only real metadata: category, difficulty, title, preview, technologies, number and the authored estimate", () => {
+    const markup = view(solo);
+    const card = markup.slice(markup.indexOf("<article"), markup.indexOf("</article>"));
+    for (const text of ["Authentication &amp; Authorization", "Intermediate", challenge001.challenge.title, "Challenge 001", "Investigate"]) {
+      assert.ok(card.includes(text), text);
+    }
+    assert.match(card, /<span class="sr-only">Estimated time: <\/span>~30 min/);
+    assert.doesNotMatch(card, /rating|learners|completion|popular|%|score/i);
+  });
+
+  test("more than three technologies are summarised as +N, with the rest kept for screen readers", () => {
+    const many = fixtureChallenge("challenge-077", { technologies: ["A1", "B2", "C3", "D4", "E5"] });
+    const markup = view([many]);
+    const start = markup.indexOf('<ul aria-label="Technologies"');
+    const list = markup.slice(start, markup.indexOf("</ul>", start));
+    assert.equal(list.match(/<li>/g)?.length, 4);
+    assert.match(list, /<span aria-hidden="true">\+2<\/span><span class="sr-only">and D4, E5<\/span>/);
+  });
+});
+
+describe("history", () => {
+  test("filter and sort changes add history entries; typing a search replaces the current one", () => {
+    const explorer = source("components/challenge/library/ChallengeExplorer.tsx");
+    assert.match(explorer, /if \(options\?\.replace\) router\.replace\(href, \{ scroll: false \}\);\s*else router\.push\(href, \{ scroll: false \}\);/);
+    const explorerView = source("components/challenge/library/ExplorerView.tsx");
+    assert.equal(explorerView.match(/\{ replace: true \}/g)?.length, 1, "only the debounced search write replaces");
+  });
+
+  test("results follow the search box immediately; only the URL waits", () => {
+    const explorerView = source("components/challenge/library/ExplorerView.tsx");
+    assert.match(explorerView, /const current: DiscoveryQuery = \{ \.\.\.query, q: search \};/);
+    assert.match(explorerView, /const results = discover\(challenges, current\);/);
+  });
+});
+
+describe("the shipped catalog's start-here pointer", () => {
+  test("is the first beginner challenge in catalog order, with its real difficulty", () => {
+    const markup = view(shipped);
+    const firstBeginner = shipped.find((challenge) => challenge.difficulty === "beginner")!;
+    const aside = markup.slice(markup.indexOf('<aside aria-labelledby="start-here-heading"'), markup.indexOf("</aside>"));
+    assert.ok(aside.includes(`Challenge ${firstBeginner.number} · ${firstBeginner.title}`));
+    assert.ok(aside.includes(`· Beginner · ~${firstBeginner.estimatedMinutes} min`));
+    assert.match(aside, new RegExp(`href="/challenges/${firstBeginner.id}"`));
   });
 });
