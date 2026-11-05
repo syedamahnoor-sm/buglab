@@ -22,7 +22,13 @@ export default async function ChallengePage({ params }: PageProps<"/challenges/[
   // Awaited before rendering anything, so notFound() can still set a 404 status.
   const scenario = getPublicScenario((await params).challengeId);
   if (!scenario) notFound();
-  return <ChallengeWorkspacePage scenario={scenario} next={nextPublished(scenario.challenge.id)} />;
+  return (
+    <ChallengeWorkspacePage
+      scenario={scenario}
+      next={nextPublished(scenario.challenge.id)}
+      publishedIds={listChallengeSummaries().map(({ id }) => id)}
+    />
+  );
 }
 
 /** The next published challenge in catalog order, or null after the last one. Never an unpublished ID. */

@@ -2,6 +2,7 @@
 export const ROUTES = {
   home: "/",
   library: "/challenges",
+  journal: "/journal",
 } as const;
 
 /** The workspace URL for a challenge, from its catalog ID. */
