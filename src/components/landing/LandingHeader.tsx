@@ -16,7 +16,7 @@ export function LandingHeader() {
       <header className={`sticky top-0 z-30 backdrop-blur-md ${styles.header}`}>
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6">
           <Link
-            href={ROUTES.welcome}
+            href={ROUTES.home}
             className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <span className="flex size-8 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent shadow-[0_0_20px_-6px_var(--accent)]">

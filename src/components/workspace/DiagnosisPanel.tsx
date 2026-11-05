@@ -108,7 +108,7 @@ export function DiagnosisPanel({
         layout && (
           <>
             {layout.collapsed && (
-              <span className="hidden font-mono text-[11px] text-subtle xl:inline">
+              <span className="hidden font-mono text-xs text-subtle xl:inline">
                 {isConfirmed ? "Confirmed" : `${evidence.length} evidence`}
               </span>
             )}
@@ -152,7 +152,7 @@ export function DiagnosisPanel({
 
         {!isConfirmed && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] text-subtle">
+            <p className="text-xs text-subtle">
               Your draft and evidence reset on refresh.
             </p>
             <button

@@ -29,17 +29,17 @@ const source = (path: string) => readFileSync(new URL(`../../src/${path}`, impor
 describe("discovery sections with a catalog of Challenge 001 alone", () => {
   const markup = view(solo);
 
-  test("Challenge 001 is featured, with the case-file card and an Open investigation link", () => {
-    assert.match(markup, /<section aria-labelledby="featured-heading"/);
-    assert.match(markup, /<a aria-labelledby="challenge-card-challenge-001-title"[^>]*href="\/challenges\/challenge-001"/);
-    assert.ok(markup.includes("Open investigation"));
-    assert.ok(markup.includes(challenge001.challenge.incident));
+  test("Challenge 001 is suggested as the place to start, with a link, not a second copy of its card", () => {
+    assert.match(markup, /<aside aria-labelledby="start-here-heading"/);
+    assert.ok(markup.includes("New to BugLab? Start here"));
+    assert.match(markup, /<a [^>]*href="\/challenges\/challenge-001"[^>]*>Open Challenge 001/);
+    assert.equal(markup.match(/<article/g)?.length, 1, "the card appears once");
+    assert.ok(markup.includes(solo[0].description), "the card shows the listing description");
   });
 
-  test("sections with nothing new to show are left out; Continue investigating shows an honest empty state", () => {
-    assert.deepEqual(sectionHeadings(markup), ["Featured investigation", "Continue investigating", "All investigations"]);
-    assert.ok(markup.includes("Nothing in progress yet."));
-    assert.doesNotMatch(markup, /Recommended for you|Beginner-friendly/);
+  test("one collection: no recommendation, beginner or progress sections, and no progress claims", () => {
+    assert.deepEqual(sectionHeadings(markup), ["New to BugLab? Start here", "All investigations"]);
+    assert.doesNotMatch(markup, /Recommended for you|Beginner-friendly|Continue investigating|in progress/i);
   });
 
   test("categories and counts come from the catalog, with no empty categories", () => {
@@ -70,18 +70,13 @@ describe("a larger catalog", () => {
     fixtureChallenge("challenge-003", { difficulty: "advanced", category: "frontend", technologies: ["React"] }),
   ];
 
-  test("recommendations and beginner-friendly appear, without repeating the featured challenge", () => {
+  test("every challenge appears exactly once, in the one collection", () => {
     const markup = view(catalog);
-    assert.deepEqual(sectionHeadings(markup), [
-      "Featured investigation",
-      "Continue investigating",
-      "Recommended for you",
-      "Beginner-friendly",
-      "All investigations",
-    ]);
-    const recommended = markup.slice(markup.indexOf("recommended-heading"), markup.indexOf("beginner-heading"));
-    assert.ok(!recommended.includes("challenge-001"), "the featured challenge is not recommended again");
-    assert.ok(recommended.includes("Chosen from the catalog"), "says how recommendations are made");
+    assert.deepEqual(sectionHeadings(markup), ["New to BugLab? Start here", "All investigations"]);
+    assert.equal(markup.match(/<article/g)?.length, catalog.length);
+    for (const challenge of catalog) {
+      assert.equal(markup.split(`href="/challenges/${challenge.id}"`).length - 1, challenge.featured ? 2 : 1, `${challenge.id}: one card (plus the start-here link if featured)`);
+    }
   });
 
   test("filtered: only results, with chips, a count and Clear filters", () => {
@@ -161,5 +156,23 @@ describe("page and boundaries", () => {
     ]) {
       assert.doesNotMatch(source(path), /@\/lib\/challenge-catalog|@\/data\/catalog["']|@\/data\/challenge-|@\/server\/|answer-key/, path);
     }
+  });
+});
+
+describe("technology filters", () => {
+  const sidebar = (markup: string) => markup.slice(markup.indexOf('aria-label="Filters"'), markup.indexOf("</aside>"));
+  const technologyBoxes = (markup: string) => sidebar(markup).match(/id="sidebar-tech-/g)?.length ?? 0;
+
+  test("show the most used six by default, behind a labelled Show all control", () => {
+    const markup = view(shipped);
+    assert.equal(technologyBoxes(markup), 6);
+    assert.match(sidebar(markup), /<button type="button" aria-expanded="false" aria-controls="sidebar-technology-list"[^>]*>Show all \d+ technologies</);
+  });
+
+  test("a selected technology stays visible even when it is not among the six", () => {
+    const rare = "Helm";
+    const markup = view(shipped, { technologies: [rare] });
+    assert.match(sidebar(markup), /id="sidebar-tech-helm"[^>]*checked=""/);
+    assert.equal(technologyBoxes(markup), 7);
   });
 });

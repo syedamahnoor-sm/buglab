@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
+import { useChallengeJourney } from "@/components/challenge/ChallengeJourney";
 import type { AttemptStatus, DiagnosisFeedback } from "@/types/diagnosis";
 import type { SubmissionState } from "./useDiagnosisSubmission";
 
@@ -27,9 +29,31 @@ function Hints({ feedback }: { feedback: DiagnosisFeedback }) {
   );
 }
 
+/** Where to go once the challenge is solved. The resolution above stays on screen. */
+function NextSteps() {
+  const journey = useChallengeJourney();
+  if (!journey) return null;
+  const link =
+    "inline-flex h-8 items-center rounded-md px-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  return (
+    <nav aria-label="Next steps" className="flex flex-wrap items-center gap-2 pt-1">
+      {journey.next ? (
+        <Link href={journey.next.href} className={`${link} bg-accent text-background hover:bg-accent/90`}>
+          Next: Challenge {journey.next.number} · {journey.next.title} →
+        </Link>
+      ) : (
+        <p className="text-xs text-foreground/85">That was the last challenge in the library.</p>
+      )}
+      <Link href={journey.libraryHref} className={`${link} border border-border-strong text-foreground hover:bg-surface-raised`}>
+        Back to the Challenge Library
+      </Link>
+    </nav>
+  );
+}
+
 function AttemptsLine({ attempts }: { attempts: AttemptStatus }) {
   return (
-    <p className="text-[11px] text-subtle">
+    <p className="text-xs text-subtle">
       {attempts.remaining} of {attempts.limit} incorrect attempts left in this 10-minute window.
     </p>
   );
@@ -62,6 +86,7 @@ export function DiagnosisResult({ state, secondsUntilRetry, onRevise, onRetry }:
         <p className="text-sm font-semibold text-success">{response.feedback.headline}</p>
         <p className="text-xs leading-5 text-foreground/90">{response.resolution.summary}</p>
         <Hints feedback={response.feedback} />
+        <NextSteps />
       </div>
     );
   } else if (response?.status === "incorrect") {

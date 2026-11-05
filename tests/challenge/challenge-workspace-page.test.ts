@@ -7,7 +7,6 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import Home from "@/app/page";
 import { ChallengeWorkspacePage } from "@/components/challenge/ChallengeWorkspacePage";
 import { challenge001 } from "@/data/challenge-001";
 import type { WorkspaceScenario } from "@/types/workspace";
@@ -34,10 +33,6 @@ const otherScenario: WorkspaceScenario = {
 };
 
 describe("ChallengeWorkspacePage", () => {
-  test("the / route renders exactly the shared page for Challenge 001", () => {
-    assert.equal(renderToStaticMarkup(createElement(Home)), render(challenge001));
-  });
-
   test("renders the header, skip links and main landmark around the workspace", () => {
     const markup = render(challenge001);
     assert.match(markup, /<header/);
@@ -50,7 +45,9 @@ describe("ChallengeWorkspacePage", () => {
     const markup = render(challenge001);
     assert.ok(markup.includes(challenge001.challenge.title));
     assert.ok(markup.includes(challenge001.challenge.incident));
-    assert.ok(markup.includes("Investigating"), "investigationStarted keeps the in-progress status");
+    // Opening a challenge is not investigating it: the status starts as "Not started".
+    assert.ok(markup.includes("Not started"));
+    assert.ok(!markup.includes("Investigating"));
   });
 
   test("renders whatever public scenario it is given, and nothing from another", () => {
@@ -70,10 +67,9 @@ describe("ChallengeWorkspacePage", () => {
     assert.doesNotMatch(page, /challenge-?001/i, "names no specific challenge");
   });
 
-  test("the / route only picks Challenge 001 and delegates to the shared page", () => {
+  test("the / route is the landing page, not a workspace: challenges open only at /challenges/<id>", () => {
     const home = source("app/page.tsx");
-    const imports = [...home.matchAll(/from "([^"]+)"/g)].map(([, from]) => from);
-    assert.deepEqual(imports, ["@/components/challenge/ChallengeWorkspacePage", "@/data/challenge-001"]);
-    assert.match(home, /<ChallengeWorkspacePage scenario=\{challenge001\} \/>/);
+    assert.match(home, /from "@\/components\/landing\/Hero"/);
+    assert.doesNotMatch(home, /ChallengeWorkspacePage|@\/data\/challenge-/);
   });
 });

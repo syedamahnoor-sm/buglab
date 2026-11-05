@@ -34,7 +34,7 @@ export function ObservationList({ observations, onAdd, onRemove }: ObservationLi
               key={observation.id}
               className="flex items-start gap-2 rounded-md border border-border bg-surface px-2 py-1.5"
             >
-              <time className="shrink-0 pt-0.5 font-mono text-[11px] text-subtle">
+              <time className="shrink-0 pt-0.5 font-mono text-xs text-subtle">
                 {formatClockTime(observation.createdAt)}
               </time>
               <p className="min-w-0 flex-1 whitespace-pre-wrap text-xs wrap-anywhere leading-5 text-foreground/90">

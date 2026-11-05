@@ -1,5 +1,5 @@
 /*
- * Content for the /welcome landing page.
+ * Content for the landing page at /.
  *
  * Only features that work in the workspace today are described here. Every
  * piece of scenario content (replay, sample logs, sample requests, notes) is
@@ -8,14 +8,17 @@
  */
 import { challenge } from "@/data/challenge-001/challenge";
 import type { LandingIconName } from "@/components/landing/icons";
+import { challengePath, ROUTES as APP_ROUTES } from "@/lib/challenge-routes";
 
 /**
- * Every link into the product goes through these routes, so they can change
- * in one place when the workspace moves after the engine integration.
+ * Every link into the product goes through these routes. The landing page
+ * walks through Challenge 001, so its case links open that challenge; the
+ * main calls to action lead to the whole library.
  */
 export const ROUTES = {
-  welcome: "/welcome",
-  workspace: "/",
+  home: APP_ROUTES.home,
+  library: APP_ROUTES.library,
+  featuredChallenge: challengePath(challenge.id),
 } as const;
 
 export const SECTION_IDS = {
@@ -26,10 +29,10 @@ export const SECTION_IDS = {
   caseFile: "case-file",
 } as const;
 
-export const primaryCta = { href: ROUTES.workspace, label: "Start investigating" };
-export const openWorkspaceCta = { href: ROUTES.workspace, label: "Open workspace" };
-export const caseCta = { href: ROUTES.workspace, label: "Open the case" };
-export const replayCta = { href: ROUTES.workspace, label: "Finish the investigation" };
+export const primaryCta = { href: ROUTES.library, label: "Browse the challenges" };
+export const openWorkspaceCta = { href: ROUTES.library, label: "Browse challenges" };
+export const caseCta = { href: ROUTES.featuredChallenge, label: "Open the case" };
+export const replayCta = { href: ROUTES.featuredChallenge, label: "Finish the investigation" };
 
 export const navLinks = [
   { href: `#${SECTION_IDS.replay}`, label: "Replay" },
@@ -377,7 +380,7 @@ export const caseFile = {
 
 export const closing = {
   title: "The next move is yours.",
-  subtitle: "Open the workspace and pick up the trail. No account needed.",
+  subtitle: "Pick an incident from the library and pick up the trail. No account needed.",
   // The handoff panel. The incident stays open: it is handed over, not solved.
   handoff: {
     status: "Open · awaiting investigator",

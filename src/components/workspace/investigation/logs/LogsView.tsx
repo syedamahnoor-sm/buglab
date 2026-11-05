@@ -117,7 +117,7 @@ export function LogsView({
       {selected && (
         <div className="max-h-[50%] shrink-0 overflow-auto border-t border-border-strong bg-surface-sunken">
           {selectedIsHidden && (
-            <p className="border-b border-border px-3 py-1.5 text-[11px] text-warning">
+            <p className="border-b border-border px-3 py-1.5 text-xs text-warning">
               This entry is hidden by the current filters.
             </p>
           )}

@@ -37,13 +37,13 @@ export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: Evide
                 </Badge>
                 <div className="min-w-0 flex-1">
                   <p className="font-mono text-xs text-foreground/90 wrap-anywhere">{summary.title}</p>
-                  <p className="font-mono text-[11px] text-subtle wrap-anywhere">{summary.detail}</p>
+                  <p className="font-mono text-xs text-subtle wrap-anywhere">{summary.detail}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onShowSource(item.ref)}
                   aria-label={`Show source of ${summary.title}`}
-                  className="h-6 shrink-0 rounded px-1.5 text-[11px] text-accent hover:bg-surface-raised focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
+                  className="h-6 shrink-0 rounded px-1.5 text-xs text-accent hover:bg-surface-raised focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent"
                 >
                   Show
                 </button>
@@ -64,7 +64,7 @@ export function EvidenceList({ items, onSetNote, onRemove, onShowSource }: Evide
                   value={item.note}
                   onChange={(event) => onSetNote(item.id, event.target.value)}
                   placeholder="Why does this matter? (optional)"
-                  className="h-7 w-full rounded border border-border bg-surface-sunken px-2 text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus:outline-none"
+                  className="h-7 w-full rounded border border-border bg-surface-sunken px-2 text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                 />
               </label>
             </li>

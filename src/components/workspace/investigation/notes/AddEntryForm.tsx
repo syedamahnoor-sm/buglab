@@ -30,7 +30,7 @@ export function AddEntryForm({
   }
 
   const fieldClass =
-    "w-full rounded-md border border-border bg-surface-sunken px-2 py-1.5 text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus:outline-none";
+    "w-full rounded-md border border-border bg-surface-sunken px-2 py-1.5 text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent";
 
   return (
     <form onSubmit={handleSubmit} className="flex items-start gap-2">

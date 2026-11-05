@@ -19,7 +19,7 @@ export function LandingFooter() {
         {/* Brand */}
         <div className="flex flex-col gap-3 py-10 sm:flex-row sm:items-center sm:justify-between">
           <Link
-            href={ROUTES.welcome}
+            href={ROUTES.home}
             className="flex items-center gap-2.5 self-start rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             <span className="flex size-8 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent shadow-[0_0_20px_-6px_var(--accent)]">

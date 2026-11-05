@@ -139,13 +139,10 @@ describe("the catalog scales to 30 challenges in six categories", () => {
     assert.equal(technologyOptions(challenges).length, 7);
   });
 
-  test("the library renders all 30 with every section and unique ids, with no UI change", () => {
+  test("the library renders all 30 exactly once, with a start-here pointer and unique ids, with no UI change", () => {
     const markup = renderToStaticMarkup(createElement(ExplorerView, { challenges, query: EMPTY_QUERY, onQueryChange: () => {} }));
-    for (const heading of ["Featured investigation", "Recommended for you", "Beginner-friendly", "All investigations"]) {
-      assert.ok(markup.includes(heading), heading);
-    }
-    const allSection = markup.slice(markup.indexOf('aria-labelledby="all-heading"'));
-    assert.equal(allSection.match(/<article/g)?.length, 30);
+    for (const heading of ["New to BugLab? Start here", "All investigations"]) assert.ok(markup.includes(heading), heading);
+    assert.equal(markup.match(/<article/g)?.length, 30, "each challenge has one card");
     const ids = [...markup.matchAll(/\sid="([^"]+)"/g)].map(([, id]) => id);
     assert.equal(new Set(ids).size, ids.length, "duplicate ids");
     for (const category of CATEGORIES) assert.ok(markup.includes(`>${category.label.replaceAll("&", "&amp;")}<`), category.label);

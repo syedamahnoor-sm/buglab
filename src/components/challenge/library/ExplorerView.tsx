@@ -7,18 +7,15 @@ import { ArrowRightIcon, CloseIcon, SearchIcon, SlidersIcon } from "@/components
 import { categoryLabel } from "@/data/catalog/categories";
 import { challengePath } from "@/lib/challenge-routes";
 import {
-  beginnerChallenges,
   discover,
   EMPTY_QUERY,
   featuredChallenges,
   isFiltered,
-  recommendedChallenges,
   SORT_OPTIONS,
   type DiscoveryQuery,
   type SortKey,
 } from "@/lib/catalog/discovery";
 import type { PublicChallenge } from "@/types/catalog";
-import { ChallengeCard, challengeCardTitleId } from "../ChallengeCard";
 import { difficultyDisplay } from "../difficulty";
 import { DiscoveryCard } from "./DiscoveryCard";
 import { FilterPanel } from "./FilterPanel";
@@ -122,9 +119,6 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
   const results = discover(challenges, query);
   const chips = activeFilters(query);
   const featured = featuredChallenges(challenges)[0];
-  const shown = new Set(featured ? [featured.id] : []);
-  const recommended = recommendedChallenges(challenges, { exclude: shown });
-  const beginners = beginnerChallenges(challenges).filter((challenge) => !shown.has(challenge.id));
   const clear = () => onQueryChange({ ...EMPTY_QUERY, sort: query.sort });
 
   const panel = (idPrefix: string) => (
@@ -156,10 +150,10 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
                 }}
                 placeholder="Search by title, technology or topic"
                 maxLength={100}
-                className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-foreground placeholder:text-subtle focus:border-accent/60 focus:outline-none"
+                className="h-10 w-full rounded-md border border-border bg-surface pl-9 pr-3 text-sm text-foreground placeholder:text-subtle focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               />
             </label>
-            <label className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted">
+            <label className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm text-muted focus-within:outline focus-within:outline-2 focus-within:outline-accent">
               <span>Sort</span>
               <select
                 value={query.sort}
@@ -239,47 +233,30 @@ export function ExplorerView({ challenges, query, onQueryChange }: ExplorerViewP
         ) : (
           <>
             {featured && (
-              <Section id="featured-heading" title="Featured investigation">
+              <aside
+                aria-labelledby="start-here-heading"
+                className="flex flex-col gap-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <h2 id="start-here-heading" className="text-xs font-semibold uppercase tracking-wider text-accent">
+                    New to BugLab? Start here
+                  </h2>
+                  <p className="mt-1 text-sm text-foreground">
+                    Challenge {featured.number} · {featured.title}
+                    <span className="text-muted">
+                      {" "}
+                      · {difficultyDisplay[featured.difficulty].label} · ~{featured.estimatedMinutes} min
+                    </span>
+                  </p>
+                </div>
                 <Link
                   href={challengePath(featured.id)}
-                  aria-labelledby={challengeCardTitleId(featured.id)}
-                  className="group block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-sm font-medium text-background transition-colors hover:bg-accent/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                 >
-                  <ChallengeCard
-                    challenge={featured}
-                    titleAs="h3"
-                    action={
-                      <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-sm font-medium text-background transition-colors duration-150 group-hover:bg-accent/85">
-                        Open investigation
-                        <ArrowRightIcon className="transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none" />
-                      </span>
-                    }
-                  />
+                  Open Challenge {featured.number}
+                  <ArrowRightIcon />
                 </Link>
-              </Section>
-            )}
-
-            <Section id="continue-heading" title="Continue investigating">
-              <div className="rounded-lg border border-dashed border-border px-4 py-5 text-sm text-muted">
-                Nothing in progress yet. Investigations are not saved between visits today; your progress will show
-                here once learner accounts are enabled.
-              </div>
-            </Section>
-
-            {recommended.length > 0 && (
-              <Section
-                id="recommended-heading"
-                title="Recommended for you"
-                description="Chosen from the catalog by what is featured, then by difficulty, not from your activity."
-              >
-                <CardGrid challenges={recommended} idPrefix="recommended" />
-              </Section>
-            )}
-
-            {beginners.length > 0 && (
-              <Section id="beginner-heading" title="Beginner-friendly">
-                <CardGrid challenges={beginners} idPrefix="beginner" />
-              </Section>
+              </aside>
             )}
 
             <Section id="all-heading" title="All investigations">

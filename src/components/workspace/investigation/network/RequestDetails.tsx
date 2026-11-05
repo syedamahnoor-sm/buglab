@@ -102,7 +102,7 @@ export function RequestDetails({
 
       <div {...panelProps("headers")}>
         <section className="space-y-1">
-          <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">
             General
           </h4>
           <dl className="grid grid-cols-[minmax(7rem,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 font-mono text-xs">

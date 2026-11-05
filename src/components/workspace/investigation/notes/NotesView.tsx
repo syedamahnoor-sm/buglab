@@ -14,7 +14,7 @@ interface NotesViewProps {
 export function NotesView({ investigation, evidenceItems, onShowSource }: NotesViewProps) {
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-auto px-3 py-3">
-      <p className="rounded-md border border-warning/30 bg-warning/5 px-2.5 py-1.5 text-[11px] text-warning/90">
+      <p className="rounded-md border border-warning/30 bg-warning/5 px-2.5 py-1.5 text-xs text-warning/90">
         Notes and evidence are temporary. They are kept in this tab only and reset when you
         refresh the page.
       </p>

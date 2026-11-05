@@ -79,7 +79,7 @@ export function NetworkView({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter by path…"
-            className="h-7 w-full rounded-md border border-border bg-surface-sunken px-2 font-mono text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus:outline-none"
+            className="h-7 w-full rounded-md border border-border bg-surface-sunken px-2 font-mono text-xs text-foreground placeholder:text-subtle focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
           />
         </label>
         <div role="group" aria-label="Request type" className="flex flex-wrap gap-1">
@@ -89,7 +89,7 @@ export function NetworkView({
               type="button"
               aria-pressed={typeFilter === filter.id}
               onClick={() => setTypeFilter(filter.id)}
-              className={`h-6 rounded border px-1.5 text-[11px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent ${
+              className={`h-6 rounded border px-1.5 text-xs focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent ${
                 typeFilter === filter.id
                   ? "border-accent/40 bg-accent/10 text-accent"
                   : "border-border text-subtle hover:text-foreground"
@@ -99,14 +99,14 @@ export function NetworkView({
             </button>
           ))}
         </div>
-        <p aria-live="polite" className="text-[11px] text-subtle">
+        <p aria-live="polite" className="text-xs text-subtle">
           {visibleRequests.length} of {requests.length}
         </p>
       </div>
 
       <div
         aria-hidden="true"
-        className="grid shrink-0 grid-cols-[2.25rem_2.75rem_1fr_auto] gap-x-2 border-b border-border py-1 pl-[calc(0.75rem+2px)] pr-3 text-[10px] uppercase tracking-wider text-subtle sm:grid-cols-[2.25rem_2.75rem_1fr_4rem_3.5rem]"
+        className="grid shrink-0 grid-cols-[2.25rem_2.75rem_1fr_auto] gap-x-2 border-b border-border py-1 pl-[calc(0.75rem+2px)] pr-3 text-xs uppercase tracking-wider text-subtle sm:grid-cols-[2.25rem_2.75rem_1fr_4rem_3.5rem]"
       >
         <span>Status</span>
         <span>Method</span>
@@ -143,7 +143,7 @@ export function NetworkView({
       {selected && (
         <div className="flex max-h-[50%] shrink-0 flex-col overflow-hidden border-t border-border-strong bg-surface-sunken">
           {selectedIsHidden && (
-            <p className="border-b border-border px-3 py-1.5 text-[11px] text-warning">
+            <p className="border-b border-border px-3 py-1.5 text-xs text-warning">
               This request is hidden by the current filters.
             </p>
           )}
