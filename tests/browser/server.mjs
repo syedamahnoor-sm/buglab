@@ -8,6 +8,7 @@ const port = await freePort();
 const origin = `http://localhost:${port}`;
 const fixture = await accountFixture(origin);
 const mailDirectory = join(fixture.directory, "mail");
+process.env.BUGLAB_AUTH_BROWSER_FIXTURE = "1";
 const next = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev", "--port", String(port)], {
   cwd: process.cwd(), windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, NODE_ENV: "development", BUGLAB_AUTH_PROVIDER: "better-auth", BUGLAB_ACCOUNTS_ENABLED: "enabled", BUGLAB_APP_ORIGIN: origin, DATABASE_URL: fixture.runtime.settings.databaseUrl, BETTER_AUTH_SECRET: fixture.runtime.settings.secret, BUGLAB_EMAIL_MODE: "capture", BUGLAB_DEV_MAIL_DIRECTORY: mailDirectory, NEXT_TELEMETRY_DISABLED: "1", GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "", BUGLAB_SMTP_HOST: "" },

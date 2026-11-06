@@ -4,6 +4,7 @@ import { BugIcon } from "@/components/ui/icons";
 import { ROUTES, SECTION_IDS, navLinks, openWorkspaceCta } from "@/data/landing";
 import { CtaLink } from "./CtaLink";
 import { styles } from "./styles";
+import { AccountNav } from "@/components/account/AccountNav";
 
 export function LandingHeader() {
   return (
@@ -42,10 +43,11 @@ export function LandingHeader() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <AccountNav />
             <ThemeToggle />
-            <CtaLink href={openWorkspaceCta.href} size="sm" arrow>
+            <span className="hidden sm:inline-flex"><CtaLink href={openWorkspaceCta.href} size="sm" arrow>
               {openWorkspaceCta.label}
-            </CtaLink>
+            </CtaLink></span>
           </div>
         </div>
       </header>

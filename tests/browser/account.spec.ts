@@ -119,6 +119,46 @@ test("mobile validation, safe return URL, themes and session expiry", async ({ p
   await expect(page).toHaveURL(/\/login\?next=/);
 });
 
+test("guest discovery and signed-in menu preserve optional practice", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin()}/`);
+  await expect(page.getByRole("main").getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Account actions", exact: true }).getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  await page.goto(`${origin()}/challenges`);
+  await expect(page.getByRole("navigation", { name: "Primary", exact: true }).getByRole("link", { name: "Learning Path", exact: true })).toBeVisible();
+  for (const width of [320, 390, 834]) {
+    await page.setViewportSize({ width, height: 900 });
+    const trigger = page.getByRole("button", { name: "Account menu", exact: true });
+    await expect(trigger).toBeEnabled();
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("navigation", { name: "Account options", exact: true }).getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  const email = await signup(page);
+  await verify(page, email);
+  await login(page, email, "/challenges");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+    await page.getByRole("button", { name: "Your account menu", exact: true }).click();
+    const menu = page.getByRole("navigation", { name: "Account options", exact: true });
+    await expect(menu.getByRole("link", { name: "Account Security", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Sign up", exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  }
+  await page.getByRole("button", { name: "Your account menu", exact: true }).click();
+  await page.getByRole("navigation", { name: "Account options", exact: true }).getByRole("link", { name: "Profile", exact: true }).click();
+  await expect(page).toHaveURL(`${origin()}/account/profile`);
+  await page.getByRole("button", { name: "Your account menu", exact: true }).click();
+  await page.getByRole("navigation", { name: "Account options", exact: true }).getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page).toHaveURL(`${origin()}/login`);
+  await page.goto(`${origin()}/challenges`);
+  await expect(page.getByRole("button", { name: "Account menu", exact: true })).toBeVisible();
+});
+
 test("account forms have labels, fit desktop/mobile and support keyboard navigation", async ({ page }) => {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 });

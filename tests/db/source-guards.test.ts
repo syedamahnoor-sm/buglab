@@ -485,6 +485,10 @@ describe("durable storage: protected areas of the baseline are untouched", () =>
       "src/app/api/learning/activity/route.ts",
     ]);
     const accountUiAllowed = new Set([
+      // Account discovery reuses the existing landing/header navigation.
+      "src/components/landing/Hero.tsx",
+      "src/components/landing/LandingHeader.tsx",
+      "src/components/layout/MobileMenu.tsx",
       "src/components/account/AccountDashboard.tsx",
       "src/components/account/AccountNav.tsx",
       "src/components/account/AccountProvider.tsx",

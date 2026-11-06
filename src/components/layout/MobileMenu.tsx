@@ -8,7 +8,7 @@ import type { AppSection, NavItem } from "./nav";
 const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 /**
- * The navigation below md: a disclosure button that opens the sections in a
+ * The navigation below lg: a disclosure button that opens the sections in a
  * panel under the header. It follows the disclosure pattern: the button says
  * whether it is expanded, the links follow it in tab order, and Escape, a
  * click outside, choosing a link or tabbing away closes it. Escape returns
@@ -31,7 +31,7 @@ export function MobileMenu({ items, current }: { items: NavItem[]; current: AppS
       if (!wrapper.current?.contains(event.target as Node)) setOpen(false);
     };
     // The panel is only for narrow layouts: close it if the window widens to the inline navigation.
-    const wide = window.matchMedia("(min-width: 48rem)");
+    const wide = window.matchMedia("(min-width: 64rem)");
     const onWide = () => wide.matches && setOpen(false);
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
@@ -51,7 +51,7 @@ export function MobileMenu({ items, current }: { items: NavItem[]; current: AppS
   const currentLabel = items.find((item) => item.section === current)?.label;
 
   return (
-    <div ref={wrapper} onBlur={onBlur} className="md:hidden">
+    <div ref={wrapper} onBlur={onBlur} className="lg:hidden">
       <button
         ref={button}
         type="button"

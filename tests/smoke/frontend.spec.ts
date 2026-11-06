@@ -2,6 +2,24 @@ import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { navigate, noOverflow, localRecord } from "./helpers";
 
+test("unavailable accounts explain configuration without blocking practice", async ({ page }, info) => {
+  test.skip(Boolean(process.env.BUGLAB_SMOKE_BASE_URL), "This check requires the isolated production-gated server; external deployments may have validated authentication.");
+  await page.goto("/");
+  await expect(page.getByRole("main").getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
+  await noOverflow(page);
+  await mkdir(".next/integration-smoke", { recursive: true });
+  await page.screenshot({ path: ".next/integration-smoke/landing-" + info.project.name + ".png", fullPage: false });
+  await page.getByRole("button", { name: "Account menu", exact: true }).click();
+  const account = page.getByRole("navigation", { name: "Account options", exact: true });
+  await expect(account).toContainText("Accounts unavailable");
+  await account.getByRole("link", { name: "Sign up", exact: true }).click();
+  await expect(page.getByText("Accounts are not available in this deployment yet", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create account", exact: true })).toHaveCount(0);
+  await page.goto("/challenges");
+  await expect(page.getByRole("navigation", { name: "Primary", exact: true })).toBeVisible();
+  await noOverflow(page);
+});
+
 test("Challenge to real diagnosis, reflection, Journal, Progress and Learning Path", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -120,7 +138,8 @@ test("keyboard disclosure, skip links, theme control and internal route discover
   if (info.project.name === "desktop-light") {
     await page.setViewportSize({ width: 768, height: 1000 });
     await noOverflow(page);
-    const last = await nav.getByRole("link", { name: "Learning Path", exact: true }).boundingBox();
+    const mobile = nav.getByRole("button", { name: /^Menu/ });
+    const last = await (await mobile.isVisible() ? mobile : nav.getByRole("link", { name: "Learning Path", exact: true })).boundingBox();
     const toggle = await page.getByRole("button", { name: /Switch to (light|dark) theme/ }).boundingBox();
     expect(last && toggle && last.x + last.width <= toggle.x).toBe(true);
   }

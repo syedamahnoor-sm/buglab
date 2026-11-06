@@ -75,12 +75,12 @@ describe("AppHeader navigation", () => {
     assert.match(path.attributes, /aria-current="page"/);
   });
 
-  test("below md the sections sit behind a menu button in the same Primary landmark, not squeezed inline", () => {
+  test("below lg the sections sit behind a menu button in the same Primary landmark, leaving room for account controls", () => {
     const markup = render("journal");
     const nav = markup.match(/<nav aria-label="Primary"[\s\S]*?<\/nav>/)?.[0] ?? "";
     assert.equal(markup.match(/<nav[\s>]/g)?.length, 1, "one navigation landmark");
-    assert.match(nav, /<ul class="hidden [^"]*md:flex/, "the inline list shows from md");
-    assert.match(nav, /<div class="md:hidden"><button type="button" aria-expanded="false"[^>]*>[\s\S]*?Menu/, "a closed disclosure button below md");
+    assert.match(nav, /<ul class="hidden [^"]*lg:flex/, "the inline list shows from lg");
+    assert.match(nav, /<div class="lg:hidden"><button type="button" aria-expanded="false"[^>]*>[\s\S]*?Menu/, "a closed disclosure button below lg");
     assert.match(nav, /current section Journal/, "the button tells screen readers where they are");
     assert.doesNotMatch(markup, /max-\[399px\]/, "no shrinking text or spacing for small phones");
   });
