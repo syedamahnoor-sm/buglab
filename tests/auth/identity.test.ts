@@ -102,8 +102,24 @@ describe("no unprotected admin or account routes", () => {
     assert.match(layout, /Suspense/);
   });
 
-  test("only the approved account, OAuth, diagnosis and recommendation APIs are mounted", () => {
-    assert.deepEqual(appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)).sort(), ["app/api/account/[...path]/route.ts", "app/api/auth/[...path]/route.ts", "app/api/challenges/[challengeId]/diagnosis/route.ts", "app/api/recommendations/v1/route.ts"]);
+  test("account, OAuth, diagnosis, Habin learner, and recommendation API routes are mounted", () => {
+    assert.deepEqual(
+      appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)).sort(),
+      [
+        "app/api/account/[...path]/route.ts",
+        "app/api/auth/[...path]/route.ts",
+        "app/api/challenges/[challengeId]/attempts/route.ts",
+        "app/api/challenges/[challengeId]/diagnosis/route.ts",
+        "app/api/challenges/[challengeId]/session/route.ts",
+        "app/api/learner/completions/route.ts",
+        "app/api/learner/route.ts",
+        "app/api/learning/activity/route.ts",
+        "app/api/learning/journal/route.ts",
+        "app/api/learning/reflections/[reflectionId]/route.ts",
+        "app/api/learning/reflections/route.ts",
+        "app/api/recommendations/v1/route.ts",
+      ],
+    );
   });
 
   test("no page or component imports the auth or admin server modules yet", () => {

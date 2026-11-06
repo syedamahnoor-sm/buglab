@@ -775,7 +775,7 @@ describe("storage failures", () => {
   test("an attempt that cannot be recorded is never answered, and never completes the challenge", async () => {
     const lab = setup();
     const cookie = await learnerInChallenge(lab);
-    const flaky = withFailing(lab, "record");
+    const flaky = withFailing(lab, "finalize");
 
     for (const body of [WRONG(), RIGHT()]) {
       await assert.rejects(flaky.submitDiagnosis(cookie, CHALLENGE_ID, body), /storage is down/);

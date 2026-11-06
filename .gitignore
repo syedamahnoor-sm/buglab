@@ -47,5 +47,6 @@ next-env.d.ts
 # Private development email links and browser test artifacts
 /.buglab-dev-mail/
 /.buglab-dev-auth/
+# Isolated browser smoke artifacts
 /test-results/
 /playwright-report/

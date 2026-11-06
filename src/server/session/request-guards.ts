@@ -12,6 +12,7 @@
  *   isPrefetch           a speculative prefetch, which must never change state
  *   readBoundedBody      the body as text, read as a stream and stopped at a cap
  *   checkWriteHeaders    the three header checks above, in that order
+ *   readJsonObjectBody   a bounded body as a JSON object (empty is `{}`), or a 400 bad-request GuardFailure
  *   checkSmallJsonWrite  checkWriteHeaders, plus a body of at most 1 KiB that is empty or a JSON object
  *
  * THE ORIGIN POLICY (agreed with Syeda; strict for the learner, session and diagnosis-submission
@@ -131,6 +132,32 @@ export function checkWriteHeaders(
   return null;
 }
 
+/** What reading a JSON object body gave: the object, or the refusal to render. */
+export type JsonObjectBody =
+  | { readonly ok: true; readonly body: Record<string, unknown> }
+  | { readonly ok: false; readonly failure: GuardFailure };
+
+/**
+ * The request body as a JSON object, read bounded by `maxBytes`. An empty (or whitespace-only) body is `{}`, so a
+ * caller that needs a field can say so in its own words. Too large, not JSON, or JSON that is not an object is a
+ * 400 `bad-request`. Call it AFTER checkWriteHeaders: it does not look at headers.
+ */
+export async function readJsonObjectBody(request: Request, { maxBytes }: { maxBytes: number }): Promise<JsonObjectBody> {
+  const text = await readBoundedBody(request, maxBytes);
+  if (text === null) return { ok: false, failure: failure(400, "bad-request", "Request body is too large.") };
+  if (text.trim() === "") return { ok: true, body: {} };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, failure: failure(400, "bad-request", "Request body must be valid JSON.") };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { ok: false, failure: failure(400, "bad-request", "Request body must be a JSON object.") };
+  }
+  return { ok: true, body: parsed as Record<string, unknown> };
+}
+
 /**
  * The full guard for the small state-changing requests: the header checks, then a body that is
  * not used but, if one is sent, must be at most 1 KiB and a JSON object. `sameOrigin` is passed on to
@@ -143,18 +170,6 @@ export async function checkSmallJsonWrite(
   const refused = checkWriteHeaders(request, sameOrigin);
   if (refused) return refused;
 
-  const text = await readBoundedBody(request, SMALL_BODY_LIMIT_BYTES);
-  if (text === null) return failure(400, "bad-request", "Request body is too large.");
-  if (text.trim() !== "") {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      return failure(400, "bad-request", "Request body must be valid JSON.");
-    }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return failure(400, "bad-request", "Request body must be a JSON object.");
-    }
-  }
-  return null;
+  const read = await readJsonObjectBody(request, { maxBytes: SMALL_BODY_LIMIT_BYTES });
+  return read.ok ? null : read.failure;
 }

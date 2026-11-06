@@ -260,7 +260,10 @@ describe("createAppServices: injection", () => {
     const { status } = await postDiagnosis(services, { cookie, ...wrong(0) });
 
     assert.equal(status, 200);
-    for (const method of ["touch", "find", "record"]) assert.ok(calls.includes(method), `${method} was not called on the injected store`);
+    for (const method of ["touch", "find", "reserve", "finalize"]) {
+      assert.ok(calls.includes(method), `${method} was not called on the injected store`);
+    }
+    assert.equal(calls.includes("record"), false, "a claimed submission is finalized, not recorded with a pre-chosen outcome");
   });
 
   test("the injected clock drives the default store, the service's cookie lifetimes and the default IP limiter", async () => {

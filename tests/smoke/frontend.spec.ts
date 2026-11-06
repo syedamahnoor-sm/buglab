@@ -2,9 +2,13 @@ import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { navigate, noOverflow, localRecord } from "./helpers";
 
-test("unavailable accounts explain configuration without blocking practice", async ({ page }) => {
+test("unavailable accounts explain configuration without blocking practice", async ({ page }, info) => {
+  test.skip(Boolean(process.env.BUGLAB_SMOKE_BASE_URL), "This check requires the isolated production-gated server; external deployments may have validated authentication.");
   await page.goto("/");
   await expect(page.getByRole("main").getByRole("link", { name: "Sign up", exact: true })).toBeVisible();
+  await noOverflow(page);
+  await mkdir(".next/integration-smoke", { recursive: true });
+  await page.screenshot({ path: ".next/integration-smoke/landing-" + info.project.name + ".png", fullPage: false });
   await page.getByRole("button", { name: "Account menu", exact: true }).click();
   const account = page.getByRole("navigation", { name: "Account options", exact: true });
   await expect(account).toContainText("Accounts unavailable");
@@ -54,13 +58,12 @@ test("navigation preserves existing local data, privacy and verified-completion 
     if (!localStorage.getItem("buglab.learning.v2")) localStorage.setItem("buglab.learning.v2", record);
   }, record);
   const privateRequests: string[] = [];
-  const forbiddenCalls: string[] = [];
+  const learnerCalls: string[] = [];
+  const accountCalls: { url: string; method: string }[] = [];
   page.on("request", (request) => {
     if (request.url().includes("/api/recommendations/v1")) privateRequests.push(request.postData() ?? "");
-    // Account discovery is now integrated; learner activation and automatic
-    // protected account writes remain forbidden during anonymous exploration.
-    const path = new URL(request.url()).pathname;
-    if (path.startsWith("/api/learner") || (path.startsWith("/api/account/") && !["/api/account/session", "/api/account/capabilities"].includes(path))) forbiddenCalls.push(request.url());
+    if (/\/api\/learner(\/|\?|$)/.test(request.url())) learnerCalls.push(`${request.method()} ${request.url()}`);
+    if (/\/api\/account(\/|\?|$)/.test(request.url())) accountCalls.push({ url: request.url(), method: request.method() });
   });
   for (const path of ["/challenges", "/workspace", "/journal#recall", "/progress", "/learning-path"]) {
     await page.goto(path);
@@ -71,7 +74,9 @@ test("navigation preserves existing local data, privacy and verified-completion 
   await expect(page.getByRole("heading", { name: "Your suggested path", exact: true })).toBeVisible();
   expect(privateRequests.length).toBeGreaterThan(0);
   expect(privateRequests.some((body) => body.includes("SMOKE_PRIVATE"))).toBe(false);
-  expect(forbiddenCalls).toEqual([]);
+  expect(learnerCalls).toEqual([]);
+  expect(accountCalls.length).toBeGreaterThan(0);
+  expect(accountCalls.every((call) => call.method === "GET" && call.url.endsWith("/api/account/session"))).toBe(true);
   await navigate(page, "Journal");
   await expect(page).toHaveURL(/\/journal$/);
   await navigate(page, "Progress");

@@ -9,7 +9,7 @@ import { validateDiagnosisSubmission } from "@/lib/diagnosis/validate";
 import type { AttemptStatus, DiagnosisResponse } from "@/types/diagnosis";
 import type { FixedWindowLimiter, LimitStatus } from "./attempt-limiter";
 import { getTrustedClientIp } from "./client-ip";
-import { evaluateDiagnosis } from "./evaluate";
+import { deterministicDiagnosisEvaluator, type DiagnosisEvaluator } from "./evaluator";
 import { isSameOriginRequest, shouldSetSecureCookie } from "./origin";
 import type { DiagnosisRegistry } from "./registry";
 
@@ -31,6 +31,8 @@ export interface DiagnosisHandlerOptions {
   appOrigin: string | null;
   /** A challenge's own hints for incorrect diagnoses; without them the evaluator's generic hints are used. */
   investigationHints?: (challengeId: string) => readonly string[] | undefined;
+  /** Defaults to the deterministic evaluator. Injected in tests. */
+  evaluator?: DiagnosisEvaluator;
 }
 
 interface RouteContext {
@@ -100,6 +102,7 @@ function attemptCookie(id: string, request: Request, appOrigin: string | null) {
 }
 
 export function createDiagnosisHandler(options: DiagnosisHandlerOptions) {
+  const evaluator = options.evaluator ?? deterministicDiagnosisEvaluator;
   return async function POST(request: Request, context: RouteContext): Promise<Response> {
     try {
       const contentType = request.headers.get("content-type") ?? "";
@@ -169,7 +172,11 @@ export function createDiagnosisHandler(options: DiagnosisHandlerOptions) {
         options.ipSubmissions.increment(ipKey);
       }
 
-      const result = evaluateDiagnosis(validation.value, challenge.answerKey, options.investigationHints?.(challengeId));
+      const result = await evaluator.evaluate({
+        submission: validation.value,
+        answerKey: challenge.answerKey,
+        investigationHints: options.investigationHints?.(challengeId),
+      });
       if (result.status === "incorrect") {
         const updated = options.wrongAttempts.increment(attemptKey);
         return respond(200, { ...result, attempts: toAttemptStatus(updated) }, headers);

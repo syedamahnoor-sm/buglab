@@ -143,12 +143,26 @@ credentials and token fragments. Test output is ignored by Git.
 Also run `npm test`, `npm run lint`, `npm run typecheck`, and `npm run build`.
 The existing next/font setup needs access to Google Fonts during a build.
 
-Validated on November 6, 2026 with Node 24.20.0: all 2,832 regression tests,
-65 focused authentication tests (including real PostgreSQL), four browser
+Initial validation on November 6, 2026 with Node 24.20.0: all 2,832 regression
+tests, 65 focused authentication tests (including real PostgreSQL), four browser
 workflows, lint, typecheck and the production build passed. Empty login forms
 were visually reviewed in light/dark themes at 1280px and 390px. Shared learner
 transactions and real Google/SMTP delivery are not covered by those fixture
-results and remain integration/deployment checks.
+results and remain integration/deployment checks. The account UI follow-up also
+verified a real persistent localhost:3200 database with signup, captured-mail
+verification, login, account-menu logout, recovery and reset. The expanded five
+fixture browser workflows cover guest discovery, account menus, keyboard use,
+mobile layouts, themes, profile/password changes, restoration and expiry.
+
+Final follow-up validation against main `ebb6cfd`: lint, typecheck and production
+build passed; all 3,172 regression tests passed with
+`node --import ./tests/setup/register.mjs --test --test-concurrency=4 "tests/**/*.test.ts"`.
+The default-concurrency run hit a test-worker shutdown stall; its owned process
+was stopped and the bounded run completed normally. All 65 focused auth tests,
+five fixture browser workflows, one actual localhost preview workflow and 20
+desktop/mobile production smoke checks passed. Two deployment API smoke checks
+were intentionally skipped without an integrated target. No learner PostgreSQL
+deployment or transactional linking activation is claimed by these results.
 
 The dependency audit reported existing Monaco/DOMPurify and lint-tree
 advisories; no Better Auth advisory was reported. No forced dependency downgrade
@@ -157,11 +171,11 @@ of deployment verification.
 
 ## Remaining deployment and shared-learning work
 
-Habin's working branch is `feature/durable-learner-session-store`, based on
-`d73abce361fee9b7301fc436676b1d433d5eaec8`. His durable-store/linking changes remain
-uncommitted and unpushed. Obtain the actual implementation commit before integrating;
-the baseline alone does not supply those modules. Review real migration ordering
-and store activation, including joint review of `0003_account_links.sql`.
+Habin's published learner backend is now included in main through PR #13,
+merge `ebb6cfd`. This UI follow-up preserves those modules and migrations
+unchanged; its local bootstrap creates only provider tables, and account linking
+remains disabled. Review real migration ordering and store activation, including
+joint review of `0003_account_links.sql`, before enabling transactional linking.
 Supply his implementation of `SharedLearnerIntegration` to the account handler,
 using Codex's `src/server/auth/verified-account.ts` identity proof and Habin's link transaction. Do not replace it with an
 in-memory link or a second learner table. Verify cookie retirement, replay,

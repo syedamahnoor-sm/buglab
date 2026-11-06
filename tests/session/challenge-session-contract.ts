@@ -102,6 +102,74 @@ export function runChallengeSessionStoreContract(
       });
     });
 
+    describe("listing current completed sessions", () => {
+      const WINDOW = { limit: 3, windowMs: 600_000 };
+      let counter = 0;
+      const correct = (learnerId: string, sessionId: string): RecordAttemptInput => {
+        counter += 1;
+        return {
+          learnerId,
+          sessionId,
+          submissionId: `completed-${counter}`,
+          requestHash: counter.toString(16).padStart(64, "0"),
+          rootCauseId: "option-a",
+          explanation: "An explanation of what the learner believes is happening.",
+          evidence: [{ kind: "log", logId: "log-01" }],
+          outcome: "correct",
+          result: RESULT,
+          window: WINDOW,
+        };
+      };
+      const complete = async (h: StoreHarness, learnerId: string, challengeId: string) => {
+        const { session } = await h.store.start({ learnerId, challengeId, challengeVersion: VERSION });
+        await h.store.record(correct(learnerId, session.id));
+        return session.id;
+      };
+
+      test("returns only this learner's completed current sessions, newest completion first; unfinished ones and others' are left out", async () => {
+        const h = await createHarness();
+        const { learner } = await newLearner(h.store);
+        const { learner: other } = await newLearner(h.store);
+        assert.deepEqual(await h.store.listCurrentCompleted(learner.id), []);
+        assert.deepEqual(await h.store.listCurrentCompleted("no-such-learner"), []);
+
+        const first = await complete(h, learner.id, CHALLENGE_A);
+        await h.advance(1000);
+        const second = await complete(h, learner.id, CHALLENGE_B);
+        await h.store.start({ learnerId: learner.id, challengeId: "challenge-003", challengeVersion: VERSION });
+        await complete(h, other.id, CHALLENGE_A);
+
+        const listed = await h.store.listCurrentCompleted(learner.id);
+        assert.deepEqual(listed.map((s) => s.id), [second, first]);
+        for (const session of listed) {
+          assert.equal(session.learnerId, learner.id);
+          assert.equal(session.status, "completed");
+          assert.equal(typeof session.completedAt, "number");
+          assert.ok(session.result);
+        }
+        assert.deepEqual(listed[1], await h.store.find({ learnerId: learner.id, challengeId: CHALLENGE_A }));
+      });
+
+      test("a superseded unfinished session never appears, and the result is a separate copy", async () => {
+        const h = await createHarness();
+        const { learner } = await newLearner(h.store);
+        const { session } = await h.store.start({ learnerId: learner.id, challengeId: CHALLENGE_A, challengeVersion: VERSION });
+        await h.store.restart({ learnerId: learner.id, challengeId: CHALLENGE_A, challengeVersion: "2", supersedes: session.id });
+        assert.deepEqual(await h.store.listCurrentCompleted(learner.id), []);
+
+        await complete(h, learner.id, CHALLENGE_B);
+        const listed = await h.store.listCurrentCompleted(learner.id);
+        assert.equal(listed.length, 1);
+        tryToMutate(listed[0]!, { status: "active" });
+        assert.equal((await h.store.listCurrentCompleted(learner.id))[0]!.status, "completed");
+      });
+
+      test("rejects an empty learner id", async () => {
+        const h = await createHarness();
+        await assert.rejects(h.store.listCurrentCompleted(""), invalidInput);
+      });
+    });
+
     describe("ownership and isolation", () => {
       test("two learners never share a session for the same challenge", async () => {
         const h = await createHarness();

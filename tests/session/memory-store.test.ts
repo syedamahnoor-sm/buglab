@@ -4,6 +4,7 @@ import { createExpiryPolicy, DEFAULT_EXPIRY_POLICY } from "@/server/session/expi
 import { MemoryStore } from "@/server/session/memory-store";
 import { issueSessionToken } from "@/server/session/token";
 import { RESULT, runAttemptStoreContract } from "./attempt-contract";
+import { runSubmissionClaimContract } from "./submission-claim-contract";
 import { runChallengeSessionStoreContract } from "./challenge-session-contract";
 import { runLearnerStoreContract, type StoreHarness } from "./store-contract";
 
@@ -36,6 +37,7 @@ runChallengeSessionStoreContract("MemoryStore", () => memoryHarness());
 runChallengeSessionStoreContract("MemoryStore with a short policy", () => memoryHarness(shortPolicy()));
 runAttemptStoreContract("MemoryStore", () => memoryHarness());
 runAttemptStoreContract("MemoryStore with a short policy", () => memoryHarness(shortPolicy()));
+runSubmissionClaimContract("MemoryStore", () => memoryHarness());
 
 describe("MemoryStore: what is stored", () => {
   test("holds only the token hash, never the raw token", async () => {
@@ -78,11 +80,15 @@ describe("MemoryStore: what is stored", () => {
     assert.deepEqual(methods, [
       "constructor",
       "create",
+      "finalize",
       "find",
       "findByTokenHash",
       "list",
+      "listCurrentCompleted",
       "purgeExpired",
       "record",
+      "releaseClaim",
+      "reserve",
       "restart",
       "start",
       "touch",

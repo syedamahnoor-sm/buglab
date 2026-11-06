@@ -100,3 +100,13 @@ When a provider is configured:
 - Pages read data only through `src/server/admin`, passing the authenticated user.
 - Any admin API route uses `requirePermissionForWrite` (origin, then permission), a JSON body and `no-store` responses.
 - Add `/admin` to the proxy's matcher so non-admins are refused before any page work.
+
+
+## Habin learner database variables
+
+| Variable | Purpose |
+|---|---|
+| `BUGLAB_DATABASE_URL` | Pooled runtime connection for learner persistence |
+| `BUGLAB_DATABASE_URL_DIRECT` | Direct connection for Habin migrations only |
+| `BUGLAB_TEST_DATABASE_URL` | Throwaway databases for `npm run test:db` |
+

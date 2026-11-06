@@ -31,10 +31,21 @@ import {
   shouldRefresh,
   type ExpiryPolicy,
 } from "./expiry";
-import { isTokenHash } from "./token";
+import {
+  assertNonEmpty,
+  assertWindow,
+  assertTokenHash,
+  decideClaim,
+  decideRecordedAttempt,
+  DEFAULT_CLAIM_LEASE_MS,
+  toAttempt,
+  toWindow,
+  validateRecordInput,
+  validateSubmissionIdentity,
+  windowOf,
+} from "./store-rules";
 import {
   StoreError,
-  type AttemptOutcome,
   type AttemptOwner,
   type AttemptStore,
   type AttemptWindow,
@@ -49,9 +60,15 @@ import {
   type LearnerStore,
   type LearnerTouch,
   type NewLearner,
+  type FinalizeClaimInput,
+  type FinalizeClaimResult,
   type RecordAttemptInput,
   type RecordAttemptResult,
+  type ReleaseClaimInput,
+  type ReserveSubmissionInput,
+  type ReserveSubmissionResult,
   type RestartChallengeSession,
+  type SubmissionClaim,
   type StartChallengeSession,
   type TokenHash,
   type WindowStatus,
@@ -64,6 +81,11 @@ export interface MemoryStoreOptions {
   now?: () => number;
   /** Source of internal ids (learners, sessions and attempts). */
   newId?: () => string;
+  /**
+   * How long a submission claim is exclusively owned. After this, another caller may take it
+   * and evaluate again. Defaults to DEFAULT_CLAIM_LEASE_MS.
+   */
+  claimLeaseMs?: number;
 }
 
 interface LearnerEntry {
@@ -91,10 +113,6 @@ interface SessionEntry {
   result?: CompletionResult;
   supersededAt?: number;
 }
-
-const SHA256_HEX = /^[0-9a-f]{64}$/;
-const MAX_SUBMISSION_ID_LENGTH = 128;
-const OUTCOMES: readonly AttemptOutcome[] = ["correct", "incorrect"];
 
 /** Frozen copies, so callers can neither see nor change the store's own entries. */
 function toLearner(entry: LearnerEntry): LearnerRecord {
@@ -128,62 +146,6 @@ function toSession(entry: SessionEntry): ChallengeSessionRecord {
   });
 }
 
-const isCount = (value: unknown) => typeof value === "number" && Number.isInteger(value) && value >= 0;
-
-/** A frozen deep copy of a completion result, or a thrown invalid-input error if it is not one. */
-function copyResult(result: unknown): CompletionResult {
-  const r = result as Partial<CompletionResult> | null | undefined;
-  const f = r?.feedback;
-  const e = f?.evidenceSummary;
-  const valid =
-    typeof r === "object" && r !== null &&
-    typeof r.resolutionSummary === "string" && r.resolutionSummary.length > 0 &&
-    typeof f === "object" && f !== null &&
-    typeof f.headline === "string" &&
-    Array.isArray(f.hints) && f.hints.every((hint) => typeof hint === "string") &&
-    typeof e === "object" && e !== null && isCount(e.total) && isCount(e.logs) && isCount(e.network);
-  if (!valid) {
-    throw new StoreError("invalid-input", "A completion result needs a resolution summary and feedback with a headline, hints and an evidence summary.");
-  }
-  return Object.freeze({
-    resolutionSummary: r.resolutionSummary as string,
-    feedback: Object.freeze({
-      headline: f.headline,
-      hints: Object.freeze([...f.hints]) as string[],
-      evidenceSummary: Object.freeze({ total: e.total, logs: e.logs, network: e.network }),
-    }),
-  });
-}
-
-function toAttempt(entry: DiagnosisAttemptRecord): DiagnosisAttemptRecord {
-  return Object.freeze({
-    ...entry,
-    evidence: Object.freeze(entry.evidence.map((ref) => Object.freeze({ ...ref }))),
-  });
-}
-
-function toWindow(status: WindowStatus): WindowStatus {
-  return Object.freeze({ ...status });
-}
-
-function assertTokenHash(value: unknown): asserts value is TokenHash {
-  if (!isTokenHash(value)) {
-    throw new StoreError("invalid-input", "Expected a SHA-256 token hash (64 lowercase hex characters).");
-  }
-}
-
-function assertNonEmpty(value: unknown, name: string): asserts value is string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new StoreError("invalid-input", `${name} must be a non-empty string.`);
-  }
-}
-
-function assertWindow(window: AttemptWindow): void {
-  if (!Number.isInteger(window?.limit) || window.limit < 1 || !Number.isFinite(window?.windowMs) || window.windowMs <= 0) {
-    throw new StoreError("invalid-input", "window needs an integer limit of at least 1 and a positive windowMs.");
-  }
-}
-
 export class MemoryStore implements LearnerStore, ChallengeSessionStore, AttemptStore {
   // Learners are keyed by token hash. The raw token never reaches this class.
   private readonly learners = new Map<TokenHash, LearnerEntry>();
@@ -192,14 +154,21 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
   // "learnerId + challengeId" to session id: at most one session per learner and challenge.
   private readonly sessionIndex = new Map<string, string>();
   private readonly attempts = new Map<string, DiagnosisAttemptRecord[]>();
+  /** Live claims, keyed by session id and submission id. Not attempts, and not visible to list(). */
+  private readonly claims = new Map<string, { requestHash: string; token: string; claimedAt: number; expiresAt: number }>();
   private readonly policy: ExpiryPolicy;
   private readonly now: () => number;
   private readonly newId: () => string;
+  private readonly claimLeaseMs: number;
 
-  constructor({ policy, now = Date.now, newId = randomUUID }: MemoryStoreOptions = {}) {
+  constructor({ policy, now = Date.now, newId = randomUUID, claimLeaseMs = DEFAULT_CLAIM_LEASE_MS }: MemoryStoreOptions = {}) {
     this.policy = createExpiryPolicy(policy);
     this.now = now;
     this.newId = newId;
+    if (!Number.isFinite(claimLeaseMs) || claimLeaseMs < 1) {
+      throw new StoreError("invalid-input", "claimLeaseMs must be a positive number of milliseconds.");
+    }
+    this.claimLeaseMs = claimLeaseMs;
   }
 
   /* ------------------------------ LearnerStore ----------------------------- */
@@ -279,6 +248,9 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
       this.sessions.delete(sessionId);
       this.sessionIndex.delete(this.indexKey(session));
       this.attempts.delete(sessionId);
+      for (const key of this.claims.keys()) {
+        if (key.startsWith(`${sessionId}\0`)) this.claims.delete(key);
+      }
     }
   }
 
@@ -357,6 +329,18 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
     return entry ? toSession(entry) : null;
   }
 
+  async listCurrentCompleted(learnerId: string): Promise<readonly ChallengeSessionRecord[]> {
+    assertNonEmpty(learnerId, "learnerId");
+    const completed: SessionEntry[] = [];
+    for (const entry of this.sessions.values()) {
+      if (entry.learnerId === learnerId && entry.status === "completed" && entry.supersededAt === undefined) {
+        completed.push(entry);
+      }
+    }
+    completed.sort((a, b) => b.completedAt! - a.completedAt! || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return Object.freeze(completed.map(toSession));
+  }
+
   /* ------------------------------ AttemptStore ----------------------------- */
 
   /** The session, or a thrown error if it does not exist or belongs to another learner. */
@@ -371,68 +355,17 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
     return session;
   }
 
-  private windowOf(attempts: readonly DiagnosisAttemptRecord[], window: AttemptWindow, now: number): WindowStatus {
-    const counted = attempts.filter((attempt) => attempt.outcome === "incorrect" && attempt.createdAt > now - window.windowMs);
-    if (counted.length === 0) return { used: 0, limit: window.limit };
-    const oldest = Math.min(...counted.map((attempt) => attempt.createdAt));
-    return { used: counted.length, limit: window.limit, resetsAt: oldest + window.windowMs };
-  }
-
   async record(input: RecordAttemptInput): Promise<RecordAttemptResult> {
     const session = this.ownedSession(input);
     if (session.supersededAt !== undefined) {
       throw new StoreError("superseded", "This session was replaced by a restart and accepts no more attempts.");
     }
-    assertNonEmpty(input.submissionId, "submissionId");
-    if (input.submissionId.length > MAX_SUBMISSION_ID_LENGTH) {
-      throw new StoreError("invalid-input", "submissionId is too long.");
-    }
-    if (!SHA256_HEX.test(input.requestHash)) {
-      throw new StoreError("invalid-input", "requestHash must be a SHA-256 hash (64 lowercase hex characters).");
-    }
-    assertNonEmpty(input.rootCauseId, "rootCauseId");
-    if (typeof input.explanation !== "string" || !Array.isArray(input.evidence)) {
-      throw new StoreError("invalid-input", "A submission needs an explanation and an evidence list.");
-    }
-    if (!OUTCOMES.includes(input.outcome)) {
-      throw new StoreError("invalid-input", "outcome must be correct or incorrect.");
-    }
-    // A correct outcome completes the session and must say what the learner was shown. Nothing else may carry a result.
-    if (input.outcome === "incorrect" && input.result !== undefined) {
-      throw new StoreError("invalid-input", "Only a correct outcome carries a completion result.");
-    }
-    const result = input.outcome === "correct" ? copyResult(input.result) : undefined;
-    assertWindow(input.window);
+    const result = validateRecordInput(input);
 
     const history = this.attempts.get(session.id) ?? [];
     const now = this.now();
-    const window = this.windowOf(history, input.window, now);
-
-    // 1. A submission id already used in this session: a retry, or a reused id.
-    const sameId = history.find((attempt) => attempt.submissionId === input.submissionId);
-    if (sameId) {
-      return sameId.requestHash === input.requestHash
-        ? Object.freeze({ kind: "duplicate", attempt: toAttempt(sameId), session: toSession(session), window: toWindow(window) })
-        : Object.freeze({ kind: "conflict" });
-    }
-
-    // 2. The session is already completed: nothing more is recorded.
-    if (session.status === "completed") {
-      const correct = history.find((attempt) => attempt.outcome === "correct");
-      if (!correct) throw new StoreError("invalid-input", "A completed session has no correct attempt.");
-      return Object.freeze({
-        kind: "already-completed",
-        attempt: toAttempt(correct),
-        session: toSession(session),
-        window: toWindow(window),
-      });
-    }
-
-    // 3. The window is full of incorrect attempts: blocked, whatever this one would have been.
-    if (window.used >= window.limit) {
-      const retryAfterMs = Math.max(1, (window.resetsAt ?? now) - now);
-      return Object.freeze({ kind: "rate-limited", retryAfterMs, window: toWindow(window) });
-    }
+    const blocked = refusal(session, history, input, now);
+    if (blocked) return blocked;
 
     // 4. Record it. A correct outcome completes the session in the same step.
     const attempt: DiagnosisAttemptRecord = {
@@ -466,8 +399,100 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
       kind: "recorded",
       attempt: toAttempt(attempt),
       session: toSession(session),
-      window: toWindow(this.windowOf(history, input.window, now)),
+      window: toWindow(windowOf(history, input.window, now)),
     });
+  }
+
+  async reserve(input: ReserveSubmissionInput): Promise<ReserveSubmissionResult> {
+    const session = this.ownedSession(input);
+    if (session.supersededAt !== undefined) {
+      throw new StoreError("superseded", "This session was replaced by a restart and accepts no more attempts.");
+    }
+    validateSubmissionIdentity(input);
+    const history = this.attempts.get(session.id) ?? [];
+    const now = this.now();
+    const blocked = refusal(session, history, input, now);
+    if (blocked) return blocked;
+
+    const key = claimKey(session.id, input.submissionId);
+    const existing = this.claims.get(key);
+    const decision = decideClaim(existing, input.requestHash, now);
+    if (decision.kind === "in-progress") return Object.freeze({ kind: "in-progress", expiresAt: decision.expiresAt });
+    if (decision.kind === "conflict") return Object.freeze({ kind: "conflict" });
+
+    const claim = {
+      requestHash: input.requestHash,
+      token: this.newId(),
+      claimedAt: now,
+      expiresAt: now + this.claimLeaseMs,
+    };
+    this.claims.set(key, claim);
+    return Object.freeze({ kind: "claimed", claim: toClaim(session.id, input.submissionId, claim) });
+  }
+
+  async finalize(input: FinalizeClaimInput): Promise<FinalizeClaimResult> {
+    const session = this.ownedSession(input);
+    if (session.supersededAt !== undefined) {
+      throw new StoreError("superseded", "This session was replaced by a restart and accepts no more attempts.");
+    }
+    const key = claimKey(session.id, input.submissionId);
+    const claim = this.claims.get(key);
+    if (!claim || claim.token !== input.claimToken || claim.requestHash !== input.requestHash) {
+      return Object.freeze({ kind: "claim-lost" });
+    }
+    const result = validateRecordInput(input);
+    const history = this.attempts.get(session.id) ?? [];
+    const now = this.now();
+    const blocked = refusal(session, history, input, now);
+    if (blocked) {
+      this.claims.delete(key);
+      return blocked;
+    }
+
+    // Apply the attempt and drop the claim together. Nothing above has mutated the session.
+    const attempt: DiagnosisAttemptRecord = {
+      id: this.newId(),
+      sessionId: session.id,
+      challengeId: session.challengeId,
+      seq: history.length + 1,
+      submissionId: input.submissionId,
+      requestHash: input.requestHash,
+      rootCauseId: input.rootCauseId,
+      explanation: input.explanation,
+      evidence: input.evidence.map((ref) => ({ ...ref })),
+      outcome: input.outcome,
+      createdAt: now,
+    };
+    history.push(attempt);
+    this.attempts.set(session.id, history);
+    this.claims.delete(key);
+    session.attemptCount = history.length;
+    session.updatedAt = now;
+    session.revision += 1;
+    if (input.outcome === "correct") {
+      session.status = "completed";
+      session.completedAt = now;
+      session.result = result;
+    } else {
+      session.wrongAttempts += 1;
+    }
+    return Object.freeze({
+      kind: "recorded",
+      attempt: toAttempt(attempt),
+      session: toSession(session),
+      window: toWindow(windowOf(history, input.window, now)),
+    });
+  }
+
+  async releaseClaim(input: ReleaseClaimInput): Promise<void> {
+    assertNonEmpty(input.sessionId, "sessionId");
+    assertNonEmpty(input.claimToken, "claimToken");
+    for (const [key, claim] of this.claims) {
+      if (key.startsWith(`${input.sessionId}\0`) && claim.token === input.claimToken) {
+        this.claims.delete(key);
+        return;
+      }
+    }
   }
 
   async list(owner: AttemptOwner): Promise<readonly DiagnosisAttemptRecord[]> {
@@ -478,6 +503,49 @@ export class MemoryStore implements LearnerStore, ChallengeSessionStore, Attempt
   async windowStatus(owner: AttemptOwner, window: AttemptWindow): Promise<WindowStatus> {
     const session = this.ownedSession(owner);
     assertWindow(window);
-    return toWindow(this.windowOf(this.attempts.get(session.id) ?? [], window, this.now()));
+    return toWindow(windowOf(this.attempts.get(session.id) ?? [], window, this.now()));
   }
+}
+
+/** Duplicate, conflict, completed and rate-limited, in the attempt-contract order. */
+function refusal(
+  session: SessionEntry,
+  history: readonly DiagnosisAttemptRecord[],
+  input: ReserveSubmissionInput,
+  now: number,
+): Exclude<ReserveSubmissionResult, { kind: "claimed" | "in-progress" }> | undefined {
+  const decision = decideRecordedAttempt(history, session.status, input, now);
+  const window = toWindow(windowOf(history, input.window, now));
+  if (decision.kind === "duplicate") {
+    const sameId = history.find((attempt) => attempt.submissionId === input.submissionId)!;
+    return Object.freeze({ kind: "duplicate", attempt: toAttempt(sameId), session: toSession(session), window });
+  }
+  if (decision.kind === "conflict") return Object.freeze({ kind: "conflict" });
+  if (decision.kind === "already-completed") {
+    const correct = history.find((attempt) => attempt.outcome === "correct");
+    if (!correct) throw new StoreError("invalid-input", "A completed session has no correct attempt.");
+    return Object.freeze({ kind: "already-completed", attempt: toAttempt(correct), session: toSession(session), window });
+  }
+  if (decision.kind === "rate-limited") {
+    return Object.freeze({ kind: "rate-limited", retryAfterMs: decision.retryAfterMs, window });
+  }
+  return undefined;
+}
+
+function claimKey(sessionId: string, submissionId: string): string {
+  return `${sessionId}\0${submissionId}`;
+}
+
+function toClaim(
+  sessionId: string,
+  submissionId: string,
+  claim: { requestHash: string; token: string; expiresAt: number },
+): SubmissionClaim {
+  return Object.freeze({
+    token: claim.token,
+    sessionId,
+    submissionId,
+    requestHash: claim.requestHash,
+    expiresAt: claim.expiresAt,
+  });
 }
