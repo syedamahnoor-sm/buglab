@@ -19,7 +19,10 @@ export function useVerifiedCompletions(source: VerifiedCompletionsSource = notCo
         if (!controller.signal.aborted) setState(next);
       },
       () => {
-        // Only the abort below rejects: the page has moved on.
+        // Sources report failures as states; a rejection is the abort below (the
+        // page moved on) or a source that broke its contract. Either way, show
+        // browser progress rather than nothing.
+        if (!controller.signal.aborted) setState({ status: "unavailable", reason: "invalid-response" });
       },
     );
     return () => controller.abort();

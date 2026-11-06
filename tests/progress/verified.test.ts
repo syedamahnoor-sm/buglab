@@ -188,7 +188,11 @@ describe("boundaries", () => {
   test("no page or component uses the HTTP source: production stays not connected", () => {
     const users = [...files("app"), ...files("components"), ...files("lib")].filter((path) => /http-source/.test(source(path)) && !path.replace(/\\/g, "/").startsWith("lib/verified/"));
     assert.deepEqual(users, []);
-    assert.match(source("components/progress/ProgressView.tsx"), /useVerifiedCompletions\(\)/, "the screen uses the default, not-connected source");
+    assert.match(source("components/progress/ProgressView.tsx"), /buildVerifiedSource\(\{/, "the screen uses the build configuration (disconnected by default)");
+    const importers = [...files("app"), ...files("components"), ...files("lib")]
+      .filter((path) => /from "(\.\/|@\/lib\/verified\/)http-source"/.test(source(path)))
+      .map((path) => path.replace(/\\/g, "/"));
+    assert.deepEqual(importers, ["lib/verified/config.ts"], "only the configuration may choose the HTTP source");
   });
 
   test("verified code holds no server code, answer keys, scenario data or browser storage", () => {

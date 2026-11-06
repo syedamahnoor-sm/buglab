@@ -21,6 +21,7 @@ import { ContinueLearning } from "./ContinueLearning";
 import { OverviewSection } from "./OverviewSection";
 import { SkillBreakdown } from "./SkillBreakdown";
 import { useVerifiedCompletions } from "./useVerifiedCompletions";
+import { buildVerifiedSource } from "@/lib/verified/config";
 
 function Loading() {
   return (
@@ -128,7 +129,9 @@ export function ProgressView({
 export function ProgressScreen({ published }: { published: readonly PublicChallenge[] }) {
   const { state, actions } = useLearning();
   const today = useToday();
-  // Not connected: no completions endpoint is mounted, so this makes no request.
-  const verified = useVerifiedCompletions();
+  // The build's source: not connected unless explicitly enabled outside production
+  // (lib/verified/config.ts), so by default this makes no request.
+  const source = useMemo(() => buildVerifiedSource({ publishedIds: new Set(published.map((challenge) => challenge.id)) }), [published]);
+  const verified = useVerifiedCompletions(source);
   return <ProgressView state={state} published={published} actions={actions} today={today} verified={verified} />;
 }
