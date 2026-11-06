@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SkipLinks, SkipTarget } from "@/components/layout/SkipLinks";
-import { ClipboardIcon, CodeIcon, SearchIcon, TerminalIcon } from "@/components/ui/icons";
+import { ArrowRightIcon, ClipboardIcon, CodeIcon, SearchIcon, TerminalIcon } from "@/components/ui/icons";
+import { ROUTES } from "@/lib/challenge-routes";
 import type { PublicChallenge } from "@/types/catalog";
 import { JournalScreen } from "./JournalView";
 
@@ -37,6 +39,13 @@ export function JournalPage({ challenges }: { challenges: PublicChallenge[] }) {
                 <span className="font-medium text-foreground">Saved in this browser only.</span> Not linked to an account, not synced to other
                 devices, and removed if you clear this site&apos;s data. No reminders are sent.
               </p>
+              <Link
+                href={ROUTES.progress}
+                className="mt-4 inline-flex items-center gap-1.5 rounded text-sm font-medium text-accent underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                See your learning progress
+                <ArrowRightIcon />
+              </Link>
             </div>
             <ol aria-label="The Learning Loop" className="grid grid-cols-2 overflow-hidden rounded-2xl border border-panel-border bg-panel sm:grid-cols-4">
               {LOOP.map(({ icon: Icon, title, detail }, index) => (
