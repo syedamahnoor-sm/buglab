@@ -78,7 +78,7 @@ function CategoryCard({ category }: { category: CategoryProgress }) {
           </span>
         </summary>
         <ul className="flex flex-col gap-0.5 px-1.5 pb-1.5">
-          {category.challenges.map(({ challenge, solved }) => (
+          {category.challenges.map(({ challenge, solved, completion }) => (
             <li key={challenge.id}>
               <Link
                 href={challengePath(challenge.id)}
@@ -91,7 +91,7 @@ function CategoryCard({ category }: { category: CategoryProgress }) {
                   {solved ? <CheckIcon width={10} height={10} strokeWidth={2.2} /> : null}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-foreground">{challenge.title}</span>
-                <span className="shrink-0 text-subtle">{solved ? "Solved" : `#${challenge.number}`}</span>
+                <span className="shrink-0 text-subtle">{completion === "verified" || completion === "verified-elsewhere" ? "Verified" : solved ? "Solved" : `#${challenge.number}`}</span>
               </Link>
             </li>
           ))}

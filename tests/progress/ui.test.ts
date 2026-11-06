@@ -136,7 +136,10 @@ describe("a record with activity", () => {
   });
 
   test("nothing is scored, verified or called mastered (streaks count days, nothing more)", () => {
-    assert.doesNotMatch(plain, /\bscore|master|accuracy|\d+ ?%|achievement|badge|verified|synced|leaderboard|rank\b/i);
+    // With no server connected, the only mention of verification is the status line saying it is not connected.
+    const status = "Browser progress only: server-verified completions are not connected yet.";
+    assert.ok(plain.includes(status));
+    assert.doesNotMatch(plain.replace(status, ""), /\bscore|master|accuracy|\d+ ?%|achievement|badge|verified|synced|leaderboard|rank\b/i);
   });
 
   test("no answer-key text appears", () => {

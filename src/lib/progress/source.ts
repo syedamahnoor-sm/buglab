@@ -2,33 +2,30 @@
  * Where Learning Progress gets its facts: the boundary between the dashboard
  * and the data behind it.
  *
- * Today there is one source, the version 2 learning record kept in this
- * browser (lib/learning). Every progress selector reads a ProgressSource and
- * nothing else, so the dashboard never keeps a copy of its own and cannot
- * drift from the Journal.
+ * Two origins, never mixed:
+ *   record    this browser's version 2 learning record (lib/learning): observed
+ *             solves, reflections, recall and practice. Browser facts are
+ *             observations; they can be cleared or edited by the learner.
+ *   verified  completions BugLab's server recorded (lib/verified), when a
+ *             server source is connected. Today none is: production passes
+ *             "not-connected", and no endpoint is called.
  *
- * Browser facts are observations: a solve here means the diagnosis server
- * confirmed a correct diagnosis while BugLab was used in this browser. They
- * can be cleared or edited by the learner, so the dashboard words them as
- * "completed in this browser", never as verified, mastered or synced.
- *
- * A later source backed by Habin's learner backend would add a second origin
- * (for example "server") and supply server-recorded completions through this
- * same shape. That needs a backend endpoint that lists a learner's completed
- * challenges, which does not exist yet; none is assumed or called here.
+ * Progress selectors read a ProgressSource and nothing else, so the dashboard
+ * keeps no copy of its own. Reflections, recall, practice and the activity
+ * calendar stay browser-only; verified completions only change what counts
+ * as completed and whether it is verified (see completions.ts).
  */
 import type { LearningRecord } from "@/lib/learning/model";
-
-export type ProgressOrigin = "browser";
+import { NOT_CONNECTED, type VerifiedState } from "@/lib/verified/model";
 
 export interface ProgressSource {
-  /** Where the facts come from. Only "browser" exists today. */
-  readonly origin: ProgressOrigin;
-  /** The learning record the facts are read from. */
+  /** The browser's learning record. */
   readonly record: LearningRecord;
+  /** Verified completions, or why there are none. */
+  readonly verified: VerifiedState;
 }
 
-/** The progress source for this browser's learning record. */
-export function browserProgress(record: LearningRecord): ProgressSource {
-  return { origin: "browser", record };
+/** Progress from this browser's learning record, with verified completions when a server source supplied them. */
+export function browserProgress(record: LearningRecord, verified: VerifiedState = NOT_CONNECTED): ProgressSource {
+  return { record, verified };
 }

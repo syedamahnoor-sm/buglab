@@ -6,7 +6,9 @@ import type { LocalDay } from "@/lib/learning/model";
 import type { DayActivity, Streaks } from "@/lib/progress/calendar";
 import type { ProgressOverview } from "@/lib/progress/overview";
 import { ActivityHeatmap, useCalendarWeeks } from "./ActivityHeatmap";
+import type { VerifiedState } from "@/lib/verified/model";
 import { SectionHeading } from "./shared";
+import { VerificationStatus } from "./VerificationStatus";
 
 interface Metric {
   label: string;
@@ -24,8 +26,14 @@ function metrics(overview: ProgressOverview, today: LocalDay): Metric[] {
       label: "Challenges solved",
       value: overview.solved,
       of: `of ${overview.total}`,
-      status: overview.unlisted ? { text: `${plural(overview.unlisted, "solve")} for retired challenges not counted`, tone: "neutral" } : undefined,
-      explain: "Completed in this browser: the diagnosis was confirmed correct while you worked here.",
+      status: overview.verificationAvailable
+        ? { text: `${overview.verified} verified · ${overview.browserOnly} in this browser only`, tone: "neutral" }
+        : overview.unlisted
+          ? { text: `${plural(overview.unlisted, "solve")} for retired challenges not counted`, tone: "neutral" }
+          : undefined,
+      explain: overview.verificationAvailable
+        ? "Solved in this browser or verified by BugLab's server. Only the server's confirmations count as verified."
+        : "Completed in this browser: the diagnosis was confirmed correct while you worked here.",
     },
     {
       label: "Reflections written",
@@ -78,12 +86,14 @@ export function OverviewSection({
   days,
   streaks,
   today,
+  verified,
 }: {
   id: string;
   overview: ProgressOverview;
   days: ReadonlyMap<LocalDay, DayActivity>;
   streaks: Streaks;
   today: LocalDay;
+  verified: VerifiedState;
 }) {
   const weeks = useCalendarWeeks();
   const unit = (value: number) => (value === 1 ? "day" : "days");
@@ -131,6 +141,7 @@ export function OverviewSection({
         <ActivityHeatmap key={`${today}-${weeks}`} days={days} today={today} firstActive={streaks.firstActive} weeks={weeks} />
       </div>
 
+      <VerificationStatus verified={verified} overview={overview} />
       <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metrics(overview, today).map((metric) => (
           <div key={metric.label} className="flex flex-col rounded-2xl border border-card-border bg-card p-4 shadow-card">

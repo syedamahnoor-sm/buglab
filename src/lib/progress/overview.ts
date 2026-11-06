@@ -7,16 +7,23 @@ import { CATEGORIES } from "@/data/catalog/categories";
 import type { LocalDay } from "@/lib/learning/model";
 import { dueReflections, nextUpcoming } from "@/lib/learning/schedule";
 import type { PublicChallenge } from "@/types/catalog";
+import { mergeCompletions } from "./completions";
 import type { ProgressSource } from "./source";
 
 export interface ProgressOverview {
-  /** Published challenges with an observed solve in this browser. */
+  /** Published challenges completed by either origin: solved in this browser or verified by the server. */
   solved: number;
+  /** Of those, confirmed by the server. Zero unless verification is available. */
+  verified: number;
+  /** Of those, observed in this browser and not confirmed by the server. */
+  browserOnly: number;
+  /** True when the server's verified completions were read. */
+  verificationAvailable: boolean;
   /** Published challenges in the catalog. */
   total: number;
   /** Reflections written for published challenges. */
   reflections: number;
-  /** Solved published challenges that have no reflection yet. */
+  /** Challenges solved in this browser with no reflection yet (the Journal reflects on browser solves only). */
   awaitingReflection: number;
   /** Recall reviews completed: one per reflection per day reviewed (several on one day count once). */
   reviewsDone: number;
@@ -24,7 +31,7 @@ export interface ProgressOverview {
   reviewsDue: number;
   /** The next review day after today, when nothing is due. Null when none is scheduled. */
   nextReviewOn: LocalDay | null;
-  /** Categories with at least one solved published challenge. */
+  /** Categories with at least one completed published challenge (either origin). */
   categoriesExplored: number;
   /** Categories that have published challenges. */
   categoriesTotal: number;
@@ -45,10 +52,14 @@ export function progressOverview(source: ProgressSource, published: readonly Pub
   const due = dueReflections(record, today).filter((entry) => byId.has(entry.challengeId));
   const upcoming = due.length ? null : nextUpcoming({ ...record, reflections: Object.fromEntries(reflected.map((entry) => [entry.challengeId, entry])) }, today);
   const withChallenges = new Set(published.map((challenge) => challenge.category));
-  const explored = new Set(solvedIds.map((id) => byId.get(id)!.category));
+  const completions = mergeCompletions(source, published);
+  const explored = new Set([...completions.byId.keys()].map((id) => byId.get(id)!.category));
 
   return {
-    solved: solvedIds.length,
+    solved: completions.completed,
+    verified: completions.verified,
+    browserOnly: completions.browserOnly,
+    verificationAvailable: completions.verificationAvailable,
     total: published.length,
     reflections: reflected.length,
     awaitingReflection: solvedIds.filter((id) => !record.reflections[id]).length,
