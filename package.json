@@ -14,7 +14,9 @@
     "typecheck": "npm run typegen && tsc --noEmit",
     "monaco:copy": "node scripts/monaco-assets.mjs copy",
     "monaco:verify": "node scripts/monaco-assets.mjs verify",
-    "test": "node --import ./tests/setup/register.mjs --test \"tests/**/*.test.ts\""
+    "test": "node --import ./tests/setup/register.mjs --test \"tests/**/*.test.ts\"",
+    "test:smoke": "playwright test --config playwright.integration.config.ts",
+    "test:smoke:api": "playwright test --config playwright.integration.config.ts --project=real-api"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -24,6 +26,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

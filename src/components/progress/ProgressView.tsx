@@ -26,7 +26,7 @@ import { buildVerifiedSource } from "@/lib/verified/config";
 function Loading() {
   return (
     <div aria-busy="true" className="flex flex-col gap-4">
-      <p className="sr-only">Loading your progress…</p>
+      <p role="status" className="sr-only">Loading your progress…</p>
       <div aria-hidden="true" className={`${card} h-72 animate-pulse motion-reduce:animate-none`} />
       <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2">
         <div className={`${card} h-40 animate-pulse motion-reduce:animate-none`} />
@@ -81,6 +81,8 @@ export function ProgressView({
           This browser is not letting BugLab read or save learning data (for example in some private windows, or when site data is blocked).
           Challenges still work; progress needs that storage to be allowed.
         </p>
+        <Link href={ROUTES.library} className={`${buttonPrimary} mt-5`}>Browse challenges</Link>
+        <Link href={ROUTES.learningPath} className={`ml-4 inline-flex rounded text-sm text-accent underline-offset-4 hover:underline ${focusRing}`}>Explore Learning Path</Link>
       </div>
     );
   }

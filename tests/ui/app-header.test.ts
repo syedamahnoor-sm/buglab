@@ -19,7 +19,7 @@ function navItems(markup: string) {
 describe("AppHeader navigation", () => {
   test("on the library, Challenges is the current page and Workspace links to the workspace page", () => {
     const items = navItems(render("challenges"));
-    assert.deepEqual(items.map((item) => item.label), ["Challenges", "Workspace", "Journal", "Progress"], "only working sections are listed");
+    assert.deepEqual(items.map((item) => item.label), ["Challenges", "Workspace", "Journal", "Progress", "Learning Path"], "only working sections are listed");
     const [challenges, workspace] = items;
     assert.deepEqual([challenges.tag, challenges.label], ["a", "Challenges"]);
     assert.match(challenges.attributes, /href="\/challenges"/);
@@ -44,19 +44,19 @@ describe("AppHeader navigation", () => {
   });
 
   test("exactly one item is current, and nothing unfinished is advertised", () => {
-    for (const current of ["challenges", "workspace", "journal", "progress"] as const) {
+    for (const current of ["challenges", "workspace", "journal", "progress", "learning-path"] as const) {
       const markup = render(current);
       assert.equal(markup.match(/aria-current="page"/g)?.length, 1, current);
       assert.doesNotMatch(markup, /Soon|Not available yet|Demo Preview|Learn/, current);
       // In a workspace, Workspace is plain text so a click cannot take the learner away from the investigation;
-      // everywhere else all four sections are links (the current one marked with aria-current).
-      assert.equal(navItems(markup).filter((item) => item.tag === "a").length, current === "workspace" ? 3 : 4, `${current}: links`);
+      // everywhere else all five sections are links (the current one marked with aria-current).
+      assert.equal(navItems(markup).filter((item) => item.tag === "a").length, current === "workspace" ? 4 : 5, `${current}: links`);
     }
   });
 
   test("on the journal, Journal is the current page and every section is reachable", () => {
     const items = navItems(render("journal"));
-    assert.deepEqual(items.map((item) => [item.tag, item.label]), [["a", "Challenges"], ["a", "Workspace"], ["a", "Journal"], ["a", "Progress"]]);
+    assert.deepEqual(items.map((item) => [item.tag, item.label]), [["a", "Challenges"], ["a", "Workspace"], ["a", "Journal"], ["a", "Progress"], ["a", "Learning Path"]]);
     assert.match(items[2].attributes, /href="\/journal"/);
     assert.match(items[2].attributes, /aria-current="page"/);
   });
@@ -66,6 +66,13 @@ describe("AppHeader navigation", () => {
     assert.deepEqual([progress.tag, progress.label], ["a", "Progress"]);
     assert.match(progress.attributes, /href="\/progress"/);
     assert.match(progress.attributes, /aria-current="page"/);
+  });
+
+  test("Learning Path is discoverable and correctly marked in the shared navigation", () => {
+    const path = navItems(render("learning-path"))[4];
+    assert.equal(path.label, "Learning Path");
+    assert.match(path.attributes, /href="\/learning-path"/);
+    assert.match(path.attributes, /aria-current="page"/);
   });
 
   test("below md the sections sit behind a menu button in the same Primary landmark, not squeezed inline", () => {
