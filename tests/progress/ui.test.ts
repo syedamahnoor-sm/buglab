@@ -75,7 +75,9 @@ describe("states", () => {
     const markup = view(ready(EMPTY_RECORD));
     assert.ok(markup.includes("Your progress starts with your first solved challenge"));
     assert.ok(markup.includes('href="/challenges"'));
-    assert.ok(text(markup).includes("0 of 30 challenges solved"));
+    assert.ok(text(markup).includes("Challenges solved 0 of 30"));
+    assert.ok(text(markup).includes("Current streak 0 days"));
+    assert.match(markup, /role="grid"/, "the calendar shows, empty, from the start");
     assert.ok(markup.includes("No activity yet"));
     assert.equal(markup.match(/>Not explored yet</g)?.length, 6);
     assert.equal(markup.match(/>Explore</g)?.length, 4, "four catalog starting points");
@@ -99,7 +101,8 @@ describe("a record with activity", () => {
   });
 
   test("overview counts with an explanation for each", () => {
-    assert.ok(plain.includes("3 of 30 challenges solved"));
+    assert.ok(plain.includes("Challenges solved 3 of 30"));
+    assert.ok(plain.includes("Current streak 1 day") && plain.includes("Active days 2 days"));
     for (const label of ["Challenges solved", "Reflections written", "Recall reviews", "Categories explored"]) assert.ok(markup.includes(`>${label}<`), label);
     assert.ok(plain.includes("1 review due now"));
     assert.ok(plain.includes("1 solved without a takeaway yet"));
@@ -132,8 +135,8 @@ describe("a record with activity", () => {
     assert.ok(plain.includes(`Wrote a takeaway for ${title("challenge-016")}`));
   });
 
-  test("nothing is scored, verified, streaked or called mastered", () => {
-    assert.doesNotMatch(plain, /\bscore|streak|master|accuracy|\d+ ?%|achievement|badge|verified|synced|leaderboard|rank\b/i);
+  test("nothing is scored, verified or called mastered (streaks count days, nothing more)", () => {
+    assert.doesNotMatch(plain, /\bscore|master|accuracy|\d+ ?%|achievement|badge|verified|synced|leaderboard|rank\b/i);
   });
 
   test("no answer-key text appears", () => {
@@ -169,9 +172,9 @@ describe("boundaries", () => {
     }
   });
 
-  test("selectors are pure: no React, no clock", () => {
+  test("selectors are pure: no React, no clock (stored instants are only converted to local days)", () => {
     for (const path of files("lib/progress")) {
-      assert.doesNotMatch(source(path), /from "react"|new Date\(|Date\.now/, path);
+      assert.doesNotMatch(source(path), /from "react"|new Date\(\)|Date\.now/, path);
     }
   });
 

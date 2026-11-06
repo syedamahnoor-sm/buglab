@@ -9,6 +9,7 @@ import { ArrowRightIcon } from "@/components/ui/icons";
 import { ROUTES } from "@/lib/challenge-routes";
 import type { LocalDay } from "@/lib/learning/model";
 import { learningActivity } from "@/lib/progress/activity";
+import { activityByDay, streaks } from "@/lib/progress/calendar";
 import { continueLearning } from "@/lib/progress/next-steps";
 import { progressOverview } from "@/lib/progress/overview";
 import { skillBreakdown } from "@/lib/progress/skills";
@@ -53,7 +54,10 @@ export function ProgressView({
   const derived = useMemo(() => {
     if (today === null) return null;
     const source = browserProgress(record);
+    const days = activityByDay(source, today);
     return {
+      days,
+      streaks: streaks(days, today),
       overview: progressOverview(source, published, today),
       categories: skillBreakdown(source, published),
       steps: continueLearning(source, published, today),
@@ -75,8 +79,7 @@ export function ProgressView({
     );
   }
 
-  const { overview, categories, steps, events } = derived;
-  const solvedIds = new Set(Object.keys(record.solves));
+  const { overview, categories, steps, events, days } = derived;
   const unreadable = state.problems.length > 0 || state.recoveryKeys.length > 0;
 
   return (
@@ -108,7 +111,7 @@ export function ProgressView({
         </section>
       ) : null}
 
-      <OverviewSection id={`${id}-overview`} overview={overview} published={published} solvedIds={solvedIds} today={today} />
+      <OverviewSection id={`${id}-overview`} overview={overview} days={days} streaks={derived.streaks} today={today} />
       <ContinueLearning id={`${id}-next`} steps={steps} today={today} actions={actions} />
       <SkillBreakdown id={`${id}-skills`} categories={categories} />
       <ActivityTimeline id={`${id}-activity`} events={events} published={published} today={today} />
