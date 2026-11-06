@@ -19,6 +19,7 @@ import { listReflections } from "@/lib/learning/model";
 import { practiceFor, type PracticeStatus } from "@/lib/learning/practice";
 import { dueReflections } from "@/lib/learning/schedule";
 import type { CategoryId, PublicChallenge } from "@/types/catalog";
+import { isCompleted, mergeCompletions } from "./completions";
 import type { ProgressSource } from "./source";
 
 /** Where a step's reasoning comes from: the learner's record here, or the public catalog. */
@@ -39,6 +40,11 @@ export function continueLearning(
   const { record } = source;
   const byId = new Map(published.map((challenge) => [challenge.id, challenge]));
   const steps: NextStep[] = [];
+  // Completed by either origin: never recommended again. Verified completions
+  // only ever remove recommendations; they never add recall or reflection steps,
+  // which belong to browser solves (the Journal reflects on those only).
+  const completions = mergeCompletions(source, published);
+  const done = (id: string) => isCompleted(completions, id);
 
   const due = dueReflections(record, today).filter((entry) => byId.has(entry.challengeId));
   if (due[0]) steps.push({ kind: "recall", basis: "your-record", challenge: byId.get(due[0].challengeId)!, dueOn: due[0].recall.dueOn, more: due.length - 1 });
@@ -52,19 +58,19 @@ export function continueLearning(
   for (const entry of listReflections(record)) {
     const from = byId.get(entry.challengeId);
     const practice = from ? practiceFor(record, from, published) : null;
-    if (from && practice && practice.status !== "applied" && !(Object.hasOwn(record.solves, practice.challenge.id) && practice.status === "suggested")) {
+    if (from && practice && practice.status !== "applied" && !(done(practice.challenge.id) && practice.status === "suggested")) {
       steps.push({ kind: "apply", basis: "your-record", from, challenge: practice.challenge, reasons: practice.reasons, status: practice.status });
       break;
     }
   }
 
   // Starting points in categories with nothing solved yet, in the library's recommended order.
-  const solvedCategories = new Set(Object.keys(record.solves).flatMap((id) => (byId.has(id) ? [byId.get(id)!.category] : [])));
+  const solvedCategories = new Set([...completions.byId.keys()].map((id) => byId.get(id)!.category));
   const firstSolve = solvedCategories.size === 0;
   const taken = new Set(steps.map((step) => step.challenge.id));
   const starts = CATEGORIES.filter((category) => !solvedCategories.has(category.id))
     .flatMap((category) => {
-      const pick = published.filter((challenge) => challenge.category === category.id && !taken.has(challenge.id)).sort(compareRecommended)[0];
+      const pick = published.filter((challenge) => challenge.category === category.id && !taken.has(challenge.id) && !done(challenge.id)).sort(compareRecommended)[0];
       return pick ? [pick] : [];
     })
     .sort(compareRecommended);
@@ -75,7 +81,7 @@ export function continueLearning(
   }
 
   // Every category explored: keep at least two steps with the next unsolved challenges.
-  const further = [...published].sort(compareRecommended).filter((challenge) => !Object.hasOwn(record.solves, challenge.id) && !taken.has(challenge.id));
+  const further = [...published].sort(compareRecommended).filter((challenge) => !done(challenge.id) && !taken.has(challenge.id));
   for (const challenge of further) {
     if (steps.length >= Math.min(2, limit)) break;
     steps.push({ kind: "explore", basis: "catalog", challenge, category: challenge.category, firstSolve, newCategory: false });

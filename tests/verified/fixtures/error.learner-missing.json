@@ -1,0 +1,5 @@
+{
+  "status": "error",
+  "code": "learner-missing",
+  "message": "There is no learner session. Start one first."
+}

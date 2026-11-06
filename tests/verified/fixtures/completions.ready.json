@@ -1,0 +1,20 @@
+{
+  "learner": { "state": "active" },
+  "completions": [
+    {
+      "challengeId": "challenge-001",
+      "completedAt": "2026-11-02T09:14:05.120Z",
+      "contentVersion": "1+cb30a3cc594b",
+      "completion": {
+        "resolution": { "summary": "FIXTURE-ONLY resolution text that must never reach the page" },
+        "submission": { "attempt": 2, "rootCauseId": "fixture-root-cause", "explanation": "FIXTURE-ONLY explanation", "evidence": [] }
+      }
+    },
+    { "challengeId": "challenge-016", "completedAt": "2026-11-05T18:40:00.000Z", "contentVersion": "1+27d95cb26d40" },
+    { "challengeId": "challenge-001", "completedAt": "2026-11-04T08:00:00.000Z", "contentVersion": "1+cb30a3cc594b" },
+    { "challengeId": "challenge-999", "completedAt": "2026-11-03T10:00:00.000Z", "contentVersion": "1+000000000000" },
+    { "challengeId": "challenge-002" },
+    { "challengeId": "challenge-003", "completedAt": "yesterday", "contentVersion": "1+3333aaaa3333" },
+    "challenge-004"
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "status": "error",
+  "code": "learner-expired",
+  "message": "The learner session has expired. Start a new one."
+}

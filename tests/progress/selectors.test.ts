@@ -40,9 +40,9 @@ const deepFreeze = <T>(value: T): T => {
 };
 
 describe("source", () => {
-  test("the only source today is this browser's learning record", () => {
+  test("the only source today is this browser's learning record; server verification is not connected", () => {
     const source = browserProgress(EMPTY_RECORD);
-    assert.equal(source.origin, "browser");
+    assert.deepEqual(source.verified, { status: "not-connected" });
     assert.equal(source.record, EMPTY_RECORD, "the record is read, never copied into a store of its own");
   });
 });
@@ -119,7 +119,7 @@ describe("skill breakdown", () => {
       assert.equal(category.solved, 0);
       assert.equal(category.total, published.filter((challenge) => challenge.category === category.id).length);
       assert.ok(category.next && category.next.category === category.id);
-      assert.deepEqual(Object.keys(category).sort(), ["challenges", "description", "explored", "id", "label", "next", "solved", "total"]);
+      assert.deepEqual(Object.keys(category).sort(), ["challenges", "description", "explored", "id", "label", "next", "solved", "total", "verified"]);
     }
   });
 

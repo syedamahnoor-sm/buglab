@@ -14,11 +14,13 @@ import { continueLearning } from "@/lib/progress/next-steps";
 import { progressOverview } from "@/lib/progress/overview";
 import { skillBreakdown } from "@/lib/progress/skills";
 import { browserProgress } from "@/lib/progress/source";
+import { NOT_CONNECTED, type VerifiedState } from "@/lib/verified/model";
 import type { PublicChallenge } from "@/types/catalog";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { ContinueLearning } from "./ContinueLearning";
 import { OverviewSection } from "./OverviewSection";
 import { SkillBreakdown } from "./SkillBreakdown";
+import { useVerifiedCompletions } from "./useVerifiedCompletions";
 
 function Loading() {
   return (
@@ -43,17 +45,20 @@ export function ProgressView({
   published,
   actions,
   today,
+  verified = NOT_CONNECTED,
 }: {
   state: LearningState;
   published: readonly PublicChallenge[];
   actions: LearningActions;
   today: LocalDay | null;
+  /** Verified completions from the server source; not connected by default. */
+  verified?: VerifiedState;
 }) {
   const id = useId();
   const record = state.record;
   const derived = useMemo(() => {
     if (today === null) return null;
-    const source = browserProgress(record);
+    const source = browserProgress(record, verified);
     const days = activityByDay(source, today);
     return {
       days,
@@ -63,7 +68,7 @@ export function ProgressView({
       steps: continueLearning(source, published, today),
       events: learningActivity(source),
     };
-  }, [record, published, today]);
+  }, [record, published, today, verified]);
 
   if (state.status === "loading" || derived === null || today === null) return <Loading />;
 
@@ -111,7 +116,7 @@ export function ProgressView({
         </section>
       ) : null}
 
-      <OverviewSection id={`${id}-overview`} overview={overview} days={days} streaks={derived.streaks} today={today} />
+      <OverviewSection id={`${id}-overview`} overview={overview} days={days} streaks={derived.streaks} today={today} verified={verified} />
       <ContinueLearning id={`${id}-next`} steps={steps} today={today} actions={actions} />
       <SkillBreakdown id={`${id}-skills`} categories={categories} />
       <ActivityTimeline id={`${id}-activity`} events={events} published={published} today={today} />
@@ -123,5 +128,7 @@ export function ProgressView({
 export function ProgressScreen({ published }: { published: readonly PublicChallenge[] }) {
   const { state, actions } = useLearning();
   const today = useToday();
-  return <ProgressView state={state} published={published} actions={actions} today={today} />;
+  // Not connected: no completions endpoint is mounted, so this makes no request.
+  const verified = useVerifiedCompletions();
+  return <ProgressView state={state} published={published} actions={actions} today={today} verified={verified} />;
 }
