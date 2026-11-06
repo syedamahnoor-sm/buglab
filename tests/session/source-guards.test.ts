@@ -45,6 +45,7 @@ describe("session module: source guards", () => {
       "src/server/session/request-hash.ts",
       "src/server/session/service.ts",
       "src/server/session/snapshots.ts",
+      "src/server/session/store-rules.ts",
       "src/server/session/token.ts",
       "src/server/session/types.ts",
     ]);
@@ -106,9 +107,25 @@ describe("session module: source guards", () => {
     }
   });
 
-  test("this phase adds no public API: nothing under src/app imports the session module", () => {
+  test("mounted learner routes import session handlers only through learner-http composition", () => {
+    const allowed = new Set([
+      "src/app/api/learner/route.ts",
+      "src/app/api/learner/completions/route.ts",
+      "src/app/api/challenges/[challengeId]/session/route.ts",
+      "src/app/api/challenges/[challengeId]/attempts/route.ts",
+      "src/app/api/learning/reflections/route.ts",
+      "src/app/api/learning/reflections/[reflectionId]/route.ts",
+      "src/app/api/learning/journal/route.ts",
+      "src/app/api/learning/activity/route.ts",
+    ]);
     for (const path of sourceFiles(join(ROOT, "src/app"))) {
-      assert.doesNotMatch(read(path), /@\/server\/session|server\/session\//, name(path));
+      const rel = name(path);
+      if (allowed.has(rel)) {
+        assert.doesNotMatch(read(path), /@\/server\/session|server\/session\//, rel);
+        assert.match(read(path), /@\/server\/learner-http/, rel);
+        continue;
+      }
+      assert.doesNotMatch(read(path), /@\/server\/session|server\/session\//, rel);
     }
   });
 
@@ -219,15 +236,28 @@ describe("diagnosis submission handler and composition: source guards", () => {
     }
   });
 
-  test("learner services stay unmounted; only diagnosis and isolated account APIs are mounted", () => {
-    const routes = sourceFiles(join(ROOT, "src/app/api")).map(name);
-    assert.deepEqual(routes, ["src/app/api/account/[...path]/route.ts", "src/app/api/auth/[...path]/route.ts", "src/app/api/challenges/[challengeId]/diagnosis/route.ts"]);
+  test("mounted API routes are the live diagnosis route, Codex account/auth routes, and Habin learner routes", () => {
+    const routes = sourceFiles(join(ROOT, "src/app/api")).map(name).sort();
+    assert.deepEqual(routes, [
+      "src/app/api/account/[...path]/route.ts",
+      "src/app/api/auth/[...path]/route.ts",
+      "src/app/api/challenges/[challengeId]/attempts/route.ts",
+      "src/app/api/challenges/[challengeId]/diagnosis/route.ts",
+      "src/app/api/challenges/[challengeId]/session/route.ts",
+      "src/app/api/learner/completions/route.ts",
+      "src/app/api/learner/route.ts",
+      "src/app/api/learning/activity/route.ts",
+      "src/app/api/learning/journal/route.ts",
+      "src/app/api/learning/reflections/[reflectionId]/route.ts",
+      "src/app/api/learning/reflections/route.ts",
+    ]);
   });
 
-  test("nothing but a test imports the composition root: no route, page, component, engine or other server code", () => {
+  test("app-services is imported only by learner-http composition and itself, not by pages or components", () => {
     for (const path of sourceFiles(join(ROOT, "src"))) {
-      if (path === servicesPath) continue;
-      assert.doesNotMatch(read(path), /app-services/, name(path));
+      const rel = name(path);
+      if (path === servicesPath || rel === "src/server/learner-http.ts") continue;
+      assert.doesNotMatch(read(path), /app-services/, rel);
     }
   });
 
@@ -271,5 +301,61 @@ describe("diagnosis submission handler and composition: source guards", () => {
     for (const source of [handlerSource, guardsSource, withoutComments(read(servicesPath))]) {
       assert.doesNotMatch(source, /\bconsole\s*\.|Math\.random|answer-key|provisionalAnswerKey|challenge-001|correctRootCauseId/);
     }
+  });
+});
+
+describe("learning loop handlers: source guards (mounted via learner-http)", () => {
+  const LOOP_DIR = join(ROOT, "src/server/learning-loop");
+  const loopHandlers = join(LOOP_DIR, "handlers.ts");
+  // Client and static trees must not import the learning-loop module. Routes go through learner-http.
+  const LOOP_MODULE = /server\/learning-loop|learning-loop\/(handlers|service)/;
+
+  test("the handlers file exists, is server-only, and does not log or read Math.random", () => {
+    const source = withoutComments(read(loopHandlers));
+    assert.match(source.trimStart(), /^import "server-only";/);
+    assert.doesNotMatch(source, /\bconsole\s*\.|Math\.random/);
+  });
+
+  test("nothing under src/app, src/components, src/lib, src/engine or src/data imports the learning-loop module directly", () => {
+    for (const dir of ["src/app", "src/components", "src/lib", "src/engine", "src/data", "src/types", "src/config"]) {
+      for (const path of sourceFiles(join(ROOT, dir))) {
+        assert.doesNotMatch(read(path), LOOP_MODULE, name(path));
+      }
+    }
+  });
+
+  test("learning-loop handlers are imported only by learner-http composition", () => {
+    for (const path of sourceFiles(join(ROOT, "src"))) {
+      if (path.startsWith(LOOP_DIR)) continue;
+      const rel = name(path);
+      if (rel === "src/server/learner-http.ts") {
+        assert.match(read(path), /learning-loop\/handlers/, rel);
+        continue;
+      }
+      assert.doesNotMatch(read(path), /learning-loop\/handlers/, rel);
+    }
+  });
+
+  test("Learning Loop routes are mounted under src/app/api/learning", () => {
+    const mounted = sourceFiles(join(ROOT, "src/app")).map(name).filter((path) => /api\/learning/.test(path)).sort();
+    assert.deepEqual(mounted, [
+      "src/app/api/learning/activity/route.ts",
+      "src/app/api/learning/journal/route.ts",
+      "src/app/api/learning/reflections/[reflectionId]/route.ts",
+      "src/app/api/learning/reflections/route.ts",
+    ]);
+  });
+
+  test("the handlers reuse the session request guards and cookie helpers rather than restating them", () => {
+    const source = withoutComments(read(loopHandlers));
+    assert.match(source, /from "\.\.\/session\/request-guards"/);
+    assert.match(source, /checkWriteHeaders\(request, \(candidate\) => isSameOrigin\(candidate, appOrigin\)\)/);
+    assert.match(source, /shouldSetSecureCookie\(request, appOrigin\)/);
+    assert.doesNotMatch(source, /sec-fetch-site|headers\.get\("origin"\)|function isSameOrigin|protocol\s*===?\s*["']https:["']|x-forwarded/i);
+  });
+
+  test("the handlers read no learner or session identity from the request body, query or path", () => {
+    const source = withoutComments(read(loopHandlers));
+    assert.doesNotMatch(source, /learnerId|challengeSessionId|sessionId|tokenHash|deletedAt/);
   });
 });
