@@ -17,11 +17,12 @@ const navItems: NavItem[] = [
   { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true, detail: "Investigate a challenge" },
   { label: "Journal", section: "journal", href: ROUTES.journal, detail: "Reflect and recall" },
   { label: "Progress", section: "progress", href: ROUTES.progress, detail: "What you've solved and what's next" },
+  { label: "Learning Path", section: "learning-path", href: ROUTES.learningPath, detail: "Choose your next investigation" },
 ];
 
 /**
  * The app header. From md up the sections are listed inline; below that they
- * sit in a menu button, so four sections never squeeze at phone widths.
+ * sit in a menu button, so five sections never squeeze at phone widths.
  * Both live in the one Primary navigation landmark.
  */
 export function AppHeader({ current }: AppHeaderProps) {

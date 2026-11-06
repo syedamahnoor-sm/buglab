@@ -74,19 +74,20 @@ export function JournalView({
 
   if (state.status === "loading" || today === null) {
     return (
-      <div aria-busy="true" className={`${card} px-6 py-10 text-center text-sm text-muted`}>
+      <div role="status" aria-busy="true" className={`${card} px-6 py-10 text-center text-sm text-muted`}>
         Loading your journal…
       </div>
     );
   }
   if (state.status === "unavailable") {
     return (
-      <div className={`${card} px-6 py-10 text-center`}>
+      <div role="status" className={`${card} px-6 py-10 text-center`}>
         <h2 className="text-base font-semibold text-foreground">Your journal is unavailable in this browser</h2>
         <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted">
           This browser is not letting BugLab save anything (for example in a private window or with site data blocked). Challenges still work;
           reflections and recall need saved site data.
         </p>
+        <Link href={ROUTES.library} className={`${buttonPrimary} mt-5`}>Browse challenges</Link>
       </div>
     );
   }

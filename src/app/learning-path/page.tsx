@@ -13,7 +13,7 @@ export default function LearningPathPage() {
   return <>
     <SkipLinks links={[{ target: "learning-path", label: "Skip to your learning path" }]} />
     <LearningPathHeader />
-    <main className="library-canvas w-full flex-1"><SkipTarget id="learning-path" label="Learning path" /><LearningPathScreen publishedIds={recommendationCatalog().filter((c) => c.available).map((c) => c.id)} /></main>
+    <main aria-label="Learning Path" className="library-canvas w-full flex-1"><SkipTarget id="learning-path" label="Learning path" /><LearningPathScreen publishedIds={recommendationCatalog().filter((c) => c.available).map((c) => c.id)} /></main>
     <SiteFooter />
   </>;
 }
