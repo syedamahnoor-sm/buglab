@@ -27,6 +27,9 @@ test("mounted account route does not inject the learner-linking adapter", () => 
 test("learner HTTP selects Postgres persistence only through the runtime URL", () => {
   const source = read("src/server/learner-http.ts");
   assert.match(source, /resolveLearnerPersistence\(\)/);
-  assert.match(source, /new PostgresLearningLoopStore/);
+  assert.match(source, /createPostgresLearningLoopStore/);
+  assert.match(source, /verifySchema\(/);
+  assert.match(source, /startPeriodicPurge/);
+  assert.doesNotMatch(source, /new PostgresLearningLoopStore\(/);
   assert.match(source, /new MemoryLearningLoopStore/);
 });

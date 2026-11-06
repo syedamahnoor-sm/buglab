@@ -56,7 +56,13 @@ export function getAccountRuntime(): AccountRuntime | null {
   const settings = readAccountSettings();
   if (!settings) return null;
   if (!runtime) {
-    const pool = new Pool({ connectionString: settings.databaseUrl, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30_000 });
+    const pool = new Pool({
+      connectionString: settings.databaseUrl,
+      max: 5,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30_000,
+      query_timeout: 20_000,
+    });
     // Error details may contain database connection data. Never log them.
     pool.on("error", () => console.error("BugLab account database connection failed."));
     runtime = { settings, pool, auth: createAccountEngine(settings, pool) };

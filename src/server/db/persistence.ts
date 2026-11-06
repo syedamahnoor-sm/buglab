@@ -291,6 +291,7 @@ export function createPostgresPersistence(options: PostgresPersistenceOptions = 
   });
   // A managed database closes idle connections. Without a listener, that error on an IDLE pooled client
   // would be an unhandled 'error' event and take the whole process down. The pool discards the client itself.
+  // The listener stays empty: the driver error can carry the connection string, and this layer does not log.
   pool.on("error", () => {});
 
   let closing: Promise<void> | undefined;
