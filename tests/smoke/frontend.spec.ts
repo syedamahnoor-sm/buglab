@@ -2,6 +2,59 @@ import { test, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { navigate, noOverflow, localRecord } from "./helpers";
 
+test("guest account reminder dismisses persistently without changing learning progress", async ({ page }) => {
+  const record = localRecord();
+  await page.addInitScript((record) => {
+    localStorage.setItem("buglab.learning.v2", record);
+  }, record);
+  await page.route("**/api/account/session", (route) => route.fulfill({ json: { session: null } }));
+  await page.goto("/progress");
+  const reminder = page.getByRole("complementary", { name: "Keep your debugging streak going!" });
+  await expect(reminder).toBeVisible();
+  await expect(reminder.getByRole("link", { name: "Create account", exact: true })).toHaveAttribute("href", "/signup");
+  await expect(reminder).toContainText("Your progress and streak stay in this browser for now.");
+  await noOverflow(page);
+  await reminder.getByRole("button", { name: "Maybe later" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(reminder).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Learning overview", exact: true })).toBeVisible();
+  await expect(reminder).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("buglab.learning.v2"))).toBe(record);
+  expect(await page.evaluate(() => localStorage.getItem("buglab.guest-account-reminder.dismissed.v1"))).toBe("1");
+});
+
+test("account reminder waits for a confirmed guest session and tolerates dismissal write failures", async ({ page }) => {
+  let session: object | null = {
+    user: { id: "reminder-test", email: "guest-test@example.com", displayName: "Learner", emailVerified: true, role: "learner", signInMethods: ["password"], createdAt: null },
+    expiresAt: "2099-01-01T00:00:00.000Z",
+  };
+  await page.route("**/api/account/session", (route) => route.fulfill({ json: { session } }));
+  await page.goto("/progress");
+  await expect(page.getByRole("button", { name: "Your account menu", exact: true }).first()).toBeVisible();
+  const reminder = page.getByRole("complementary", { name: "Keep your debugging streak going!" });
+  await expect(reminder).toHaveCount(0);
+  await page.unroute("**/api/account/session");
+  await page.route("**/api/account/session", (route) => route.abort());
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Learning overview", exact: true })).toBeVisible();
+  await expect(reminder).toHaveCount(0);
+  session = null;
+  await page.unroute("**/api/account/session");
+  await page.route("**/api/account/session", (route) => route.fulfill({ json: { session } }));
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "buglab.guest-account-reminder.dismissed.v1") throw new DOMException("Storage full", "QuotaExceededError");
+      return original.call(this, key, value);
+    };
+  });
+  await page.reload();
+  await expect(reminder).toBeVisible();
+  await reminder.getByRole("button", { name: "Maybe later" }).click();
+  await expect(reminder).toHaveCount(0);
+});
+
 test("unavailable accounts explain configuration without blocking practice", async ({ page }, info) => {
   test.skip(Boolean(process.env.BUGLAB_SMOKE_BASE_URL), "This check requires the isolated production-gated server; external deployments may have validated authentication.");
   await page.goto("/");

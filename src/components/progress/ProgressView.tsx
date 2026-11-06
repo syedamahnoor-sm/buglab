@@ -19,6 +19,7 @@ import type { PublicChallenge } from "@/types/catalog";
 import { ActivityTimeline } from "./ActivityTimeline";
 import { ContinueLearning } from "./ContinueLearning";
 import { OverviewSection } from "./OverviewSection";
+import { GuestAccountReminder } from "./GuestAccountReminder";
 import { SkillBreakdown } from "./SkillBreakdown";
 import { useVerifiedCompletions } from "./useVerifiedCompletions";
 import { buildVerifiedSource } from "@/lib/verified/config";
@@ -120,6 +121,7 @@ export function ProgressView({
       ) : null}
 
       <OverviewSection id={`${id}-overview`} overview={overview} days={days} streaks={derived.streaks} today={today} verified={verified} />
+      <GuestAccountReminder />
       <ContinueLearning id={`${id}-next`} steps={steps} today={today} actions={actions} />
       <SkillBreakdown id={`${id}-skills`} categories={categories} />
       <ActivityTimeline id={`${id}-activity`} events={events} published={published} today={today} />
