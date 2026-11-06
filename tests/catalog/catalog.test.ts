@@ -118,6 +118,7 @@ describe("who may read the catalog", () => {
       "app/challenges/[challengeId]/page.tsx",
       "app/challenges/page.tsx",
       "app/journal/page.tsx",
+      "app/progress/page.tsx",
       "lib/challenge-catalog.ts",
       "proxy.ts",
       "server/admin/challenges.ts",

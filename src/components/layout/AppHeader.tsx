@@ -2,43 +2,32 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { BugIcon } from "@/components/ui/icons";
 import { ROUTES } from "@/lib/challenge-routes";
+import { MobileMenu } from "./MobileMenu";
+import { navItemClass, type AppSection, type NavItem } from "./nav";
 
-/** The app section a page belongs to. */
-export type AppSection = "challenges" | "workspace" | "journal";
+export type { AppSection } from "./nav";
 
 interface AppHeaderProps {
   /** The section the current page belongs to; it is marked as the current page. */
   current: AppSection;
 }
 
-interface NavItem {
-  label: string;
-  section: AppSection;
-  href: string;
-  /**
-   * When current, show the item as text rather than a link. The workspace
-   * does this: inside an open challenge, a link to the workspace page would
-   * only take the learner away from their investigation.
-   */
-  textWhenCurrent?: boolean;
-}
-
 const navItems: NavItem[] = [
-  { label: "Challenges", section: "challenges", href: ROUTES.library },
-  { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true },
-  { label: "Journal", section: "journal", href: ROUTES.journal },
+  { label: "Challenges", section: "challenges", href: ROUTES.library, detail: "Browse the investigations" },
+  { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true, detail: "Investigate a challenge" },
+  { label: "Journal", section: "journal", href: ROUTES.journal, detail: "Reflect and recall" },
+  { label: "Progress", section: "progress", href: ROUTES.progress, detail: "What you've solved and what's next" },
 ];
 
-// Below sm, items and gaps tighten so the items fit at 320px without the nav
-// scrolling; from sm up the header is unchanged. Below 400px (320px phones) the
-// three sections and the theme toggle fit by trimming padding and text slightly.
-const itemClass = "block rounded-md px-2 py-1.5 max-[399px]:px-[5px] max-[399px]:text-[13px] sm:px-3";
-const currentClass = "block rounded-md bg-nav-current px-2 py-1.5 font-medium text-foreground max-[399px]:px-[5px] max-[399px]:text-[13px] sm:px-3";
-
+/**
+ * The app header. From md up the sections are listed inline; below that they
+ * sit in a menu button, so four sections never squeeze at phone widths.
+ * Both live in the one Primary navigation landmark.
+ */
 export function AppHeader({ current }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-nav/90 shadow-nav backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 max-[399px]:gap-2 max-[399px]:px-3 sm:gap-8 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:px-6 md:gap-8">
         <Link
           href={ROUTES.home}
           className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -46,28 +35,24 @@ export function AppHeader({ current }: AppHeaderProps) {
           <span className="flex size-8 items-center justify-center rounded-md border border-accent/30 bg-accent/10 text-accent">
             <BugIcon width={18} height={18} />
           </span>
-          {/* On the narrowest phones the logo stands alone; the name stays for screen readers. */}
-          <span className="flex flex-col leading-none max-[399px]:sr-only">
-            <span className="text-sm font-semibold tracking-tight text-foreground">
-              BugLab
-            </span>
-            <span className="mt-1 hidden text-xs text-subtle sm:block">
-              Debugging investigations
-            </span>
+          <span className="flex flex-col leading-none">
+            <span className="text-sm font-semibold tracking-tight text-foreground">BugLab</span>
+            <span className="mt-1 hidden text-xs text-subtle lg:block">Debugging investigations</span>
           </span>
         </Link>
 
-        <nav aria-label="Primary" className="min-w-0 flex-1">
-          <ul className="flex items-center gap-0.5 overflow-x-auto text-sm sm:gap-1">
+        <nav aria-label="Primary" className="flex min-w-0 flex-1 justify-end md:justify-start">
+          <ul className="hidden items-center gap-1 text-sm md:flex">
             {navItems.map((item) => (
               <li key={item.label}>
                 <NavEntry item={item} current={current} />
               </li>
             ))}
           </ul>
+          <MobileMenu items={navItems} current={current} />
         </nav>
 
-        <ThemeToggle className="max-[399px]:size-8" />
+        <ThemeToggle />
       </div>
     </header>
   );
@@ -78,18 +63,14 @@ function NavEntry({ item, current }: { item: NavItem; current: AppSection }) {
 
   if (isCurrent && item.textWhenCurrent) {
     return (
-      <span aria-current="page" className={currentClass}>
+      <span aria-current="page" className={navItemClass(true)}>
         {item.label}
       </span>
     );
   }
 
   return (
-    <Link
-      href={item.href}
-      aria-current={isCurrent ? "page" : undefined}
-      className={`${isCurrent ? currentClass : `${itemClass} text-muted transition-colors hover:bg-surface-raised hover:text-foreground`} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent`}
-    >
+    <Link href={item.href} aria-current={isCurrent ? "page" : undefined} className={navItemClass(isCurrent)}>
       {item.label}
     </Link>
   );

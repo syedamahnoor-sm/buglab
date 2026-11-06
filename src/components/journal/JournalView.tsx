@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useRef, useState } from "react";
-import { challengePath, ROUTES } from "@/lib/challenge-routes";
+import { useEffect, useId, useRef, useState } from "react";
+import { challengePath, JOURNAL_SECTIONS, ROUTES } from "@/lib/challenge-routes";
 import { listReflections, type LocalDay, type ReflectionEntry } from "@/lib/learning/model";
 import { practiceFor, type PracticeStatus, type Suggestion } from "@/lib/learning/practice";
 import { dueReflections, nextUpcoming } from "@/lib/learning/schedule";
@@ -212,7 +212,7 @@ export function JournalView({
       </div>
 
       {/* 1. Recall: first, because it is the time-sensitive step. */}
-      <section aria-labelledby={`${id}-recall`} className="flex flex-col gap-4">
+      <section id={JOURNAL_SECTIONS.recall} aria-labelledby={`${id}-recall`} className="flex scroll-mt-20 flex-col gap-4">
         <SectionHeader
           id={`${id}-recall`}
           headingRef={recallHeading}
@@ -285,7 +285,7 @@ export function JournalView({
 
       {/* Solved, not yet reflected on: a reflection can still be written. */}
       {awaiting.length > 0 && (
-        <section aria-labelledby={`${id}-awaiting`} className="flex flex-col gap-4">
+        <section id={JOURNAL_SECTIONS.awaiting} aria-labelledby={`${id}-awaiting`} className="flex scroll-mt-20 flex-col gap-4">
           <SectionHeader id={`${id}-awaiting`} title="Solved, not yet reflected" detail="A takeaway now makes the next recall possible." />
           <ul className="flex flex-col gap-3">
             {awaiting.map((solve) => {
@@ -360,7 +360,7 @@ export function JournalView({
 
       {/* 3. Apply: related practice. */}
       {practice.length > 0 && (
-        <section aria-labelledby={`${id}-practice`} className="flex flex-col gap-4">
+        <section id={JOURNAL_SECTIONS.practice} aria-labelledby={`${id}-practice`} className="flex scroll-mt-20 flex-col gap-4">
           <SectionHeader id={`${id}-practice`} title="Apply: practise next" />
           <p className="-mt-2 max-w-3xl text-sm leading-relaxed text-muted">
             Related cases chosen from the catalog by shared category, technologies and topics, skipping ones you have solved here. A case counts as
@@ -431,5 +431,19 @@ export function JournalView({
 export function JournalScreen({ published }: { published: readonly PublicChallenge[] }) {
   const { state, actions } = useLearning();
   const today = useToday();
+  useScrollToHash(state.status !== "loading" && today !== null);
   return <JournalView state={state} published={published} actions={actions} today={today} />;
+}
+
+/**
+ * The journal renders in the browser, after the page has loaded, so a link to
+ * one of its sections (from Learning Progress) has nothing to scroll to at
+ * first. Once the journal is ready, go to the linked section.
+ */
+function useScrollToHash(ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+    const target = window.location.hash ? document.getElementById(decodeURIComponent(window.location.hash.slice(1))) : null;
+    target?.scrollIntoView({ block: "start" });
+  }, [ready]);
 }
