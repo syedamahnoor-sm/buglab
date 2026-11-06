@@ -16,6 +16,8 @@ export default function nextConfig(phase: string): NextConfig {
   }
 
   return {
+    // Browser fixtures must not lock or overwrite the developer's preview.
+    distDir: process.env.BUGLAB_AUTH_BROWSER_FIXTURE === "1" ? ".next-auth-test" : ".next",
     /* config options here */
     cacheComponents: true,
     partialPrefetching: true,

@@ -22,7 +22,9 @@ export default defineConfig({
     url: target + "/challenges",
     reuseExistingServer: false,
     timeout: 60000,
-    env: { NEXT_TELEMETRY_DISABLED: "1" },
+    // Match the real smoke server's origin; never inherit development account
+    // activation or contact a developer database from production UI checks.
+    env: { NEXT_TELEMETRY_DISABLED: "1", BUGLAB_APP_ORIGIN: target, BUGLAB_ACCOUNTS_ENABLED: "", BUGLAB_AUTH_PRODUCTION_VERIFIED: "" },
   },
   projects: [
     { name: "desktop-dark", testMatch: /frontend\.spec\.ts/, use: { viewport: { width: 1440, height: 1000 }, colorScheme: "dark" } },

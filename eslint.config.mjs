@@ -9,6 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-auth-test/**",
+    ".buglab-dev-auth/**",
+    ".buglab-dev-mail/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

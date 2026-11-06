@@ -5,6 +5,7 @@ import { HeroScene } from "./HeroScene";
 import { LogField } from "./LogField";
 import { styles } from "./styles";
 import { TraceConnector } from "./TraceConnector";
+import { LandingAccountLinks } from "@/components/account/LandingAccountLinks";
 
 /*
  * Entrances are pure CSS (@starting-style via Tailwind's `starting:`), so the
@@ -55,6 +56,7 @@ export function Hero() {
               {hero.secondaryCta.label}
             </CtaLink>
           </div>
+          <LandingAccountLinks />
           <ul
             className={`mt-8 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-wider text-subtle motion-safe:delay-300 ${enterLeft}`}
           >
