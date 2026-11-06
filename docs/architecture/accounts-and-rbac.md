@@ -1,8 +1,11 @@
 # Accounts, roles and the admin area
 
-Status: **foundation only, not active.** No sign-in, registration, account or admin route is mounted. The code in
-`src/server/auth`, `src/server/admin` and `src/components/admin` is complete enough to test and to mount later, but
-it authenticates nobody until a real provider and durable storage exist.
+Status: **account workflow implemented, disabled until configured; admin remains unmounted.**
+Better Auth and PostgreSQL account/session persistence live in `src/server/account`, behind mounted
+`/api/account/*` routes and account pages. Activation requires real database, origin, secret and email
+configuration; production has an additional verification gate. See
+[the current API contract](account-frontend-contract.md) and
+[operations guide](../authentication-operations.md). Shared learner linking awaits Habin's unpublished code.
 
 ## 1. Two identities, kept apart
 
@@ -52,8 +55,10 @@ BugLab will not implement passwords, hashing or session cryptography itself. The
 - CSRF protection, compatible with our same-origin rule;
 - runs on the Node.js runtime under Next.js 16 with Cache Components.
 
-Candidates to evaluate: **Better Auth** and **Auth.js (NextAuth v5)**, each with a Postgres adapter. The choice
-depends on the durable store, which is the same open decision as the learner-session store (Habin's M2).
+Selected: **Better Auth 1.7.18 with PostgreSQL**, using its maintained credential and session implementation,
+direct `pg` adapter, email verification/recovery and optional Google OAuth. Compatibility with this
+checkout's Next.js 16.4.3 Cache Components architecture is verified by the production build and browser tests.
+Provider tables use a `buglab_auth_` prefix and do not replace Habin's learner schema.
 
 ### Configuration it will need
 

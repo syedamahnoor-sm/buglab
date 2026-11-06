@@ -18,6 +18,8 @@ export interface AuthenticatedUser {
   /** The provider's stable account id. Not a learner id. */
   readonly id: string;
   readonly email: string;
+  /** Providers that issue VerifiedAccount proofs must explicitly report true. */
+  readonly emailVerified?: boolean;
   readonly displayName: string | null;
   readonly role: Role;
 }

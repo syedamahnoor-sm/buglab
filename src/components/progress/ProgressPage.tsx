@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LearningIdentityNotice } from "@/components/account/LearningIdentityNotice";
 import { focusRing } from "@/components/journal/ui";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -16,6 +17,7 @@ export function ProgressPage({ challenges }: { challenges: PublicChallenge[] }) 
     <>
       <SkipLinks links={[{ target: CONTENT_TARGET_ID, label: "Skip to progress" }]} />
       <AppHeader current="progress" />
+      <LearningIdentityNotice />
       <main aria-labelledby={HEADING_ID} className="library-canvas flex w-full flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-16 pt-10 sm:px-6 sm:pt-14">
           <header className="flex animate-rise flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-12">

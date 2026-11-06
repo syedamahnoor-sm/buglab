@@ -3,14 +3,17 @@
  *
  * BugLab does not implement passwords, hashing or session cryptography itself.
  * A maintained provider (see docs/architecture/accounts-and-rbac.md) will sit
- * behind this interface once a durable database and its secrets exist.
+ * behind this interface. Better Auth is implemented in src/server/account;
+ * activation still requires a durable database, email configuration and secrets.
  *
- * Until then the only provider is UNCONFIGURED: it authenticates nobody, so
+ * Without that configuration the provider is UNCONFIGURED: it authenticates nobody, so
  * every protected operation is refused. There is no in-memory or development
  * account store to fall back on, by design.
  */
 import "server-only";
 import type { AuthSession } from "./types";
+import { getAccountRuntime } from "@/server/account/engine";
+import { readAccountSession } from "@/server/account/session";
 
 export interface AuthProvider {
   /** Which provider this is, for diagnostics. Never a secret. */
@@ -29,8 +32,8 @@ export const unconfiguredAuthProvider: AuthProvider = Object.freeze({
   },
 });
 
-/** Provider names a deployment may select once they are implemented. None is, yet. */
-export const SUPPORTED_PROVIDERS: readonly string[] = [];
+/** Implemented providers; selection still requires explicit deployment configuration. */
+export const SUPPORTED_PROVIDERS: readonly string[] = ["better-auth"];
 
 /**
  * The provider for this deployment, from BUGLAB_AUTH_PROVIDER. Unset means
@@ -39,6 +42,11 @@ export const SUPPORTED_PROVIDERS: readonly string[] = [];
  */
 export function resolveAuthProvider(value: string | undefined = process.env.BUGLAB_AUTH_PROVIDER): AuthProvider {
   if (value === undefined || value.trim() === "") return unconfiguredAuthProvider;
+  if (value === "better-auth") {
+    const runtime = getAccountRuntime();
+    if (!runtime) return unconfiguredAuthProvider;
+    return { name: "better-auth", configured: true, getSession: (request) => readAccountSession(runtime, request.headers) };
+  }
   throw new Error(
     `BUGLAB_AUTH_PROVIDER="${value}" is not available. Supported: ${SUPPORTED_PROVIDERS.length ? SUPPORTED_PROVIDERS.join(", ") : "none yet"}.`,
   );

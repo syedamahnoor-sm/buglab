@@ -25,7 +25,7 @@ function refuse(status: 401 | 403, code: "unauthenticated" | "forbidden" | "cros
 /** The signed-in user, or a 401 response. */
 export async function requireUser(request: Request, provider: AuthProvider): Promise<GuardResult> {
   const session = await provider.getSession(request);
-  if (!session) return refuse(401, "unauthenticated", "Sign in to continue.");
+  if (!session || !Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) return refuse(401, "unauthenticated", "Sign in to continue.");
   return { ok: true, user: session.user };
 }
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LearningIdentityNotice } from "@/components/account/LearningIdentityNotice";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SkipLinks, SkipTarget } from "@/components/layout/SkipLinks";
@@ -24,6 +25,7 @@ export function JournalPage({ challenges }: { challenges: PublicChallenge[] }) {
     <>
       <SkipLinks links={[{ target: CONTENT_TARGET_ID, label: "Skip to journal" }]} />
       <AppHeader current="journal" />
+      <LearningIdentityNotice />
       <main aria-labelledby={HEADING_ID} className="library-canvas flex w-full flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-16 pt-10 sm:px-6 sm:pt-14">
           <header className="grid animate-rise items-end gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] lg:gap-12">

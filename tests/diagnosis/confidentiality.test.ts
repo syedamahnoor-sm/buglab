@@ -25,10 +25,13 @@ const files = sourceFiles(SRC).map((path) => ({
   text: readFileSync(path, "utf8"),
 }));
 
-const SERVER_ONLY_PATHS = [/^server\//, /\.server\.ts$/, /^app\/api\//];
+const SERVER_ONLY_PATHS = [/^server\//, /\.server\.ts$/, /^app\/api\//, /^app\/account\/layout\.tsx$/];
 const isServerOnlyPath = (path: string) => SERVER_ONLY_PATHS.some((pattern) => pattern.test(path));
 
 describe("answer-key confidentiality", () => {
+  test("the account layout that reads authentication is explicitly server-only", () => {
+    assert.match(files.find(({ path }) => path === "app/account/layout.tsx")!.text, /^import "server-only";$/m);
+  });
   test("only server-only modules import the answer key or server diagnosis code", () => {
     const offenders = files
       .filter(({ path }) => !isServerOnlyPath(path))

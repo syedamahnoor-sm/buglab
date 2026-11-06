@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { BugIcon } from "@/components/ui/icons";
 import { ROUTES } from "@/lib/challenge-routes";
 import { MobileMenu } from "./MobileMenu";
+import { AccountNav } from "@/components/account/AccountNav";
 import { navItemClass, type AppSection, type NavItem } from "./nav";
 
 export type { AppSection } from "./nav";
@@ -52,6 +53,7 @@ export function AppHeader({ current }: AppHeaderProps) {
           <MobileMenu items={navItems} current={current} />
         </nav>
 
+        <AccountNav />
         <ThemeToggle />
       </div>
     </header>
