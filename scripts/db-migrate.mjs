@@ -57,6 +57,12 @@ export class MigrationError extends Error {
   }
 }
 
+/** SQLSTATE only. Driver messages can include the statement text. */
+function migrationFailureDetail(error) {
+  const code = error && typeof error === "object" ? error.code : undefined;
+  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code) ? ` SQLSTATE ${code}.` : "";
+}
+
 const checksumOf = (text) => createHash("sha256").update(text.replace(/\r\n/g, "\n")).digest("hex");
 
 /**
@@ -219,7 +225,7 @@ export async function migrate({ connectionString, dir = MIGRATIONS_DIR, dryRun =
         await client.query("COMMIT");
       } catch (error) {
         await client.query("ROLLBACK").catch(() => {});
-        throw new MigrationError(`Renaming ${LEGACY_MIGRATIONS_TABLE} to ${MIGRATIONS_TABLE} failed and was rolled back: ${error?.message ?? "unknown error"}`);
+        throw new MigrationError(`Renaming ${LEGACY_MIGRATIONS_TABLE} to ${MIGRATIONS_TABLE} failed and was rolled back.${migrationFailureDetail(error)}`);
       }
     }
 
@@ -236,7 +242,7 @@ export async function migrate({ connectionString, dir = MIGRATIONS_DIR, dryRun =
           await client.query("COMMIT");
         } catch (error) {
           await client.query("ROLLBACK").catch(() => {});
-          throw new MigrationError(`Migration ${migration.version} failed and was rolled back: ${error?.message ?? "unknown error"}`);
+          throw new MigrationError(`Migration ${migration.version} failed and was rolled back.${migrationFailureDetail(error)}`);
         }
       }
       applied.push(migration.version);
