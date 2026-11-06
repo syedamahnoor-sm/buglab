@@ -8,13 +8,14 @@ import { learnerPersistenceMode } from "@/server/learner-persistence";
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const read = (path: string) => readFileSync(join(ROOT, path), "utf8");
 
+function env(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
+  return { NODE_ENV: "test", ...overrides };
+}
+
 test("learner persistence stays in memory unless BUGLAB_DATABASE_URL is set", () => {
-  assert.equal(learnerPersistenceMode({} as NodeJS.ProcessEnv), "memory");
-  assert.equal(learnerPersistenceMode({ BUGLAB_DATABASE_URL: "   " } as NodeJS.ProcessEnv), "memory");
-  assert.equal(
-    learnerPersistenceMode({ BUGLAB_DATABASE_URL: "postgres://localhost/buglab_isolated" } as NodeJS.ProcessEnv),
-    "postgres",
-  );
+  assert.equal(learnerPersistenceMode(env()), "memory");
+  assert.equal(learnerPersistenceMode(env({ BUGLAB_DATABASE_URL: "   " })), "memory");
+  assert.equal(learnerPersistenceMode(env({ BUGLAB_DATABASE_URL: "postgres://localhost/buglab_isolated" })), "postgres");
 });
 
 test("mounted account route does not inject the learner-linking adapter", () => {
