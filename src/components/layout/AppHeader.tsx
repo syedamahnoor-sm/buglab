@@ -18,17 +18,18 @@ const navItems: NavItem[] = [
   { label: "Workspace", section: "workspace", href: ROUTES.workspace, textWhenCurrent: true, detail: "Investigate a challenge" },
   { label: "Journal", section: "journal", href: ROUTES.journal, detail: "Reflect and recall" },
   { label: "Progress", section: "progress", href: ROUTES.progress, detail: "What you've solved and what's next" },
+  { label: "Learning Path", section: "learning-path", href: ROUTES.learningPath, detail: "Choose your next investigation" },
 ];
 
 /**
- * The app header. From md up the sections are listed inline; below that they
- * sit in a menu button, so four sections never squeeze at phone widths.
+ * The app header. From lg up the sections are listed inline; below that they
+ * sit in a menu button, so five sections never squeeze at phone widths.
  * Both live in the one Primary navigation landmark.
  */
 export function AppHeader({ current }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-nav/90 shadow-nav backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:px-6 md:gap-8">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:gap-6">
         <Link
           href={ROUTES.home}
           className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -42,8 +43,8 @@ export function AppHeader({ current }: AppHeaderProps) {
           </span>
         </Link>
 
-        <nav aria-label="Primary" className="flex min-w-0 flex-1 justify-end md:justify-start">
-          <ul className="hidden items-center gap-1 text-sm md:flex">
+        <nav aria-label="Primary" className="flex min-w-0 flex-1 justify-end lg:justify-start">
+          <ul className="hidden items-center gap-1 text-sm lg:flex">
             {navItems.map((item) => (
               <li key={item.label}>
                 <NavEntry item={item} current={current} />

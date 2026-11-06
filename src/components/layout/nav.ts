@@ -1,5 +1,5 @@
 /** The app section a page belongs to. */
-export type AppSection = "challenges" | "workspace" | "journal" | "progress" | "account";
+export type AppSection = "challenges" | "workspace" | "journal" | "progress" | "learning-path" | "account";
 
 export interface NavItem {
   label: string;

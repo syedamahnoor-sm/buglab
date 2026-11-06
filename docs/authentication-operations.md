@@ -1,8 +1,39 @@
 # Authentication setup and deployment
 
-Authentication is implemented but disabled until real infrastructure is supplied.
+Authentication requires explicitly configured real infrastructure.
 Do not set the production verification gate based only on local fixture tests.
-No deployment database or Google/email credentials are included in this worktree.
+No production database, Google or SMTP credentials are committed.
+
+### Persistent Windows development preview
+
+The November 6 preview at port 3200 was a development server without the five
+required account variables or an email adapter, so it correctly returned 503
+and hid registration. No security gate was removed to fix it.
+
+With the locked development dependencies already installed, run
+`npm run auth:dev` to initialize an isolated, real PostgreSQL cluster and start
+Next.js on port 3200. Use `npm run auth:dev -- --setup-only` when a development
+preview is already running; Next.js reloads the generated `.env.local`.
+`--port 3201` selects a different preview origin. This Windows helper generates
+new random local credentials, binds PostgreSQL to loopback only, applies only
+the five provider tables in its owned cluster, and uses development email
+capture. It refuses an existing environment targeting a different database or
+secret. It never connects to Habin's database or runs learner migrations.
+
+The ignored `.buglab-dev-auth/` directory contains ownership metadata, secrets
+and persistent PostgreSQL data. The ignored `.env.local` configures this preview;
+`.buglab-dev-mail/` contains private verification/reset messages. Keep all three
+private and out of logs and Git. Capture is a real testing delivery adapter,
+not external mailbox delivery. Open the captured link privately to verify an
+account or reset its password. Do not share token URLs or captured messages.
+
+`npm run auth:doctor` reports configuration presence and checks the five tables
+without printing secrets. `npm run test:auth:local` exercises signup through
+recovery against the running localhost:3200 preview with a unique test account.
+It leaves that test account in the local database and never resets user data.
+PostgreSQL persists after Next.js stops. To stop only this owned database,
+run `npm run auth:dev -- --stop-database`; restarting the helper preserves it.
+Production activation stays unset, and capture remains forbidden in production.
 
 ## Local configuration
 
@@ -41,7 +72,9 @@ Use deployment log redaction for request bodies, cookies, SQL URLs and tokens.
 
 ## Provider schema
 
-No migration runs during startup, a request, a build or dependency installation.
+No migration runs during application startup, a request, a build or dependency
+installation. The explicit `auth:dev` provisioning helper applies provider
+tables only to the isolated database it owns, as described above.
 The command uses the pinned provider's schema generator and refuses tables
 outside the `buglab_auth_` prefix. It does not apply Habin's migrations.
 
@@ -102,7 +135,8 @@ have its platform binaries installed and allowed to start subprocesses.
 `npx playwright install chromium` installs the browser. Then
 `npm run test:auth:browser` starts its own Next.js process and PostgreSQL cluster,
 captures test emails in a private temporary directory, and drives actual forms.
-It stops only its own processes and removes only its own generated fixture
+It uses a separate ignored `.next-auth-test/` output, so the developer preview
+can remain running. It stops only its own processes and removes only its own generated fixture
 directory. Traces, screenshots and video are disabled because flows contain
 credentials and token fragments. Test output is ignored by Git.
 

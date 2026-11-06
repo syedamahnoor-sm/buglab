@@ -8,6 +8,8 @@ export const ROUTES = {
   journal: "/journal",
   /** Learning Progress: what has been solved, reflected on and recalled in this browser. */
   progress: "/progress",
+  /** Read-only suggestions and existing due recalls. */
+  learningPath: "/learning-path",
 } as const;
 
 /** Fixed anchors on the Journal page, so other pages can link straight to a section. */

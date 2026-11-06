@@ -219,9 +219,9 @@ describe("diagnosis submission handler and composition: source guards", () => {
     }
   });
 
-  test("learner services stay unmounted; only diagnosis and isolated account APIs are mounted", () => {
+  test("learner services stay unmounted; only approved diagnosis, account and recommendation APIs are mounted", () => {
     const routes = sourceFiles(join(ROOT, "src/app/api")).map(name);
-    assert.deepEqual(routes, ["src/app/api/account/[...path]/route.ts", "src/app/api/auth/[...path]/route.ts", "src/app/api/challenges/[challengeId]/diagnosis/route.ts"]);
+    assert.deepEqual(routes, ["src/app/api/account/[...path]/route.ts", "src/app/api/auth/[...path]/route.ts", "src/app/api/challenges/[challengeId]/diagnosis/route.ts", "src/app/api/recommendations/v1/route.ts"]);
   });
 
   test("nothing but a test imports the composition root: no route, page, component, engine or other server code", () => {
