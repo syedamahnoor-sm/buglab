@@ -2,8 +2,8 @@
  * PostgreSQL implementation of LearningLoopStore. Server-only.
  *
  * Satisfies the same contract as MemoryLearningLoopStore (tests/learning-loop/store-contract.ts), on the schema of
- * db/migrations/0004_learning_reflections.sql. Not wired into getAppServices(): selecting it is a separate,
- * explicitly approved step.
+ * db/migrations/0004_learning_reflections.sql. Selected by learner-http when BUGLAB_DATABASE_URL is set;
+ * the default MemoryStore composition root stays DB-free and does not import this module.
  *
  * ATOMICITY. Every method is ONE statement, so nothing needs a transaction or a lock the caller could hold.
  *

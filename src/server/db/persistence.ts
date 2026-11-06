@@ -2,10 +2,10 @@
  * Builds the durable persistence layer (store, rate limiter, connection pool) from configuration, and
  * schedules its purge. Server-only.
  *
- * NOTHING MOUNTS THIS and the composition root does not select it yet: a later, separately approved step
- * that mounts the routes passes `persistence.store` to the application's service composition and
- * `persistence.learnerCreationGuard(...)` to the learner handlers. Until then it is an adapter with tests.
- * Nothing here runs at import time; a pool is created only when createPostgresPersistence() is called.
+ * Selected only by `src/server/learner-http.ts` (via `learner-persistence.ts`) when BUGLAB_DATABASE_URL
+ * is set. The default MemoryStore composition root does not import this module. Account linking
+ * stays separate. Nothing here runs at import time; a pool is created only when
+ * createPostgresPersistence() is called.
  *
  *   const persistence = createPostgresPersistence();            // reads BUGLAB_DATABASE_URL
  *   const services = createAppServices({ store: persistence.store });

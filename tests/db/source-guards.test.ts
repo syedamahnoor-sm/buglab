@@ -231,6 +231,7 @@ describe("durable storage: source guards", () => {
     const allowedImporters = new Set([
       ...serverFiles.map(name),
       "src/server/learner-http.ts",
+      "src/server/learner-persistence.ts",
       "src/server/account/handler.ts",
       "src/server/account/shared-learner.ts",
       "src/server/account/engine.ts",
@@ -267,15 +268,20 @@ describe("durable storage: source guards", () => {
     assert.match(code, /import type pg from "pg";/, LEARNING_LOOP_POSTGRES_FILE);
   });
 
-  test("the PostgreSQL learning-loop store is inactive: no source file imports it (not wired into getAppServices)", () => {
+  test("the PostgreSQL learning-loop store is selected only by learner-http (not by app-services)", () => {
+    const allowed = new Set(["src/server/learner-http.ts"]);
     for (const path of sourceFiles(join(ROOT, "src"))) {
       if (name(path) === LEARNING_LOOP_POSTGRES_FILE) continue;
       const sibling = name(path).startsWith("src/server/learning-loop/");
       for (const specifier of importedModules(read(path))) {
         const imports = /learning-loop\/postgres-store/.test(specifier) || (sibling && specifier === "./postgres-store");
-        assert.ok(!imports, `${name(path)} imports the learning-loop PostgreSQL store`);
+        if (imports) {
+          assert.ok(allowed.has(name(path)), `${name(path)} imports the learning-loop PostgreSQL store`);
+        }
       }
     }
+    const appServices = withoutComments(read(join(ROOT, "src/server/app-services.ts")));
+    assert.doesNotMatch(appServices, /learning-loop\/postgres-store|PostgresLearningLoopStore|learner-persistence|createPostgresPersistence/);
   });
 
   test("the identity boundary is only imported by Habin identity/db modules and the inactive SharedLearner adapter surface", (t) => {
