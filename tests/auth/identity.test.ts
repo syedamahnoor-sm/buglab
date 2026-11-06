@@ -99,8 +99,8 @@ describe("no unprotected admin or account routes", () => {
     assert.deepEqual(exposed, []);
   });
 
-  test("the only API route is the existing diagnosis endpoint", () => {
-    assert.deepEqual(appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)), ["app/api/challenges/[challengeId]/diagnosis/route.ts"]);
+  test("only diagnosis and the public read-only recommendation API are mounted", () => {
+    assert.deepEqual(appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)), ["app/api/challenges/[challengeId]/diagnosis/route.ts", "app/api/recommendations/v1/route.ts"]);
   });
 
   test("no page or component imports the auth or admin server modules yet", () => {
