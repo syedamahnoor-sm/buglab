@@ -7,3 +7,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Session logs
+
+Codex uses the project hooks described in `docs/codex-session-logging.md`.
+Keep all exported agent logs in `.claude-logs/`, using the hackathon guide's
+prompt-and-final-response format. Include reviewed session logs with related
+changes. Preserve existing Claude logs and never stage unrelated changes just
+to satisfy the logging policy. Never commit raw Codex transcripts or credentials.

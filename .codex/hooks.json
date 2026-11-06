@@ -1,0 +1,27 @@
+{
+    "description":  "BugLab prompt and final response logs; no tool activity.",
+    "hooks":  {
+                  "UserPromptSubmit":  [
+                                           {
+                                               "hooks":  [
+                                                             {
+                                                                 "command":  "python scripts/codex_session_log.py",
+                                                                 "timeout":  15,
+                                                                 "type":  "command"
+                                                             }
+                                                         ]
+                                           }
+                                       ],
+                  "Stop":  [
+                               {
+                                   "hooks":  [
+                                                 {
+                                                     "command":  "python scripts/codex_session_log.py",
+                                                     "timeout":  15,
+                                                     "type":  "command"
+                                                 }
+                                             ]
+                               }
+                           ]
+              }
+}
