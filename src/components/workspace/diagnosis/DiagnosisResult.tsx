@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useChallengeJourney } from "@/components/challenge/ChallengeJourney";
+import { ReflectionPanel } from "@/components/journal/ReflectionPanel";
+import { SolveRecorder } from "@/components/journal/SolveRecorder";
 import type { AttemptStatus, DiagnosisFeedback } from "@/types/diagnosis";
 import type { SubmissionState } from "./useDiagnosisSubmission";
 
@@ -26,6 +28,22 @@ function Hints({ feedback }: { feedback: DiagnosisFeedback }) {
         <li key={hint}>{hint}</li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The Learning Loop after a server-confirmed correct diagnosis: record the
+ * observed solve (once per confirmation), then offer the optional reflection.
+ * Only rendered in the correct branch, so nothing else can record a solve.
+ */
+function Reflect({ confirmation }: { confirmation: object }) {
+  const journey = useChallengeJourney();
+  if (!journey) return null;
+  return (
+    <>
+      <SolveRecorder challengeId={journey.challengeId} confirmation={confirmation} />
+      <ReflectionPanel challengeId={journey.challengeId} />
+    </>
   );
 }
 
@@ -86,6 +104,7 @@ export function DiagnosisResult({ state, secondsUntilRetry, onRevise, onRetry }:
         <p className="text-sm font-semibold text-success">{response.feedback.headline}</p>
         <p className="text-xs leading-5 text-foreground/90">{response.resolution.summary}</p>
         <Hints feedback={response.feedback} />
+        <Reflect confirmation={response} />
         <NextSteps />
       </div>
     );

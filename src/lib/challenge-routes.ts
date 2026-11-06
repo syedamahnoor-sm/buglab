@@ -4,6 +4,8 @@ export const ROUTES = {
   library: "/challenges",
   /** The workspace's own page: the welcome screen when no challenge is open. */
   workspace: "/workspace",
+  /** The Learning Journal: reflections, recall and related practice. */
+  journal: "/journal",
 } as const;
 
 /** The workspace URL for a challenge, from its catalog ID. */

@@ -20,6 +20,8 @@ export interface ChallengeLink {
 }
 
 interface ChallengeJourneyValue {
+  /** The challenge being investigated, so the Learning Loop can record a confirmed solve of it. */
+  challengeId: string;
   libraryHref: string;
   /** The next published challenge in catalog order, or null after the last one. */
   next: ChallengeLink | null;
@@ -40,7 +42,10 @@ export function ChallengeJourney({ challenge, libraryHref, next, children }: Cha
   const [investigationStarted, setInvestigationStarted] = useState(false);
   const markInvestigationStarted = useCallback(() => setInvestigationStarted(true), []);
   const config = useMemo(() => sessionConfigForChallenge(challenge), [challenge]);
-  const value = useMemo(() => ({ libraryHref, next, markInvestigationStarted }), [libraryHref, next, markInvestigationStarted]);
+  const value = useMemo(
+    () => ({ challengeId: challenge.id, libraryHref, next, markInvestigationStarted }),
+    [challenge.id, libraryHref, next, markInvestigationStarted],
+  );
 
   return (
     <ChallengeJourneyContext value={value}>
