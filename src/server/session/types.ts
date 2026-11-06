@@ -223,6 +223,12 @@ export interface ChallengeSessionStore {
   find(owner: ChallengeSessionOwner): Promise<ChallengeSessionRecord | null>;
 
   /**
+   * All of the learner's CURRENT sessions that are `completed` (never a superseded one, never another learner's),
+   * ordered `completedAt` DESC then `id` ASC. At most one per challenge. Empty for an unknown learner. Read-only.
+   */
+  listCurrentCompleted(learnerId: string): Promise<readonly ChallengeSessionRecord[]>;
+
+  /**
    * Replaces an unfinished session with a fresh one at a new content version, atomically. It is a
    * compare-and-set on `supersedes`, so two requests that both noticed the same stale session
    * produce one new session, not two, and it can never discard work that is not the named session:
@@ -339,12 +345,105 @@ export interface AttemptOwner {
   readonly sessionId: string;
 }
 
+/**
+ * A submission that has not been finished yet. The token is a fence: only a finalize or release
+ * that still holds it may change the claim. Server-only. Never sent to a client or a model.
+ */
+export interface SubmissionClaim {
+  readonly token: string;
+  readonly sessionId: string;
+  readonly submissionId: string;
+  readonly requestHash: string;
+  readonly expiresAt: number;
+}
+
+/**
+ * Identity of a submission before anyone knows its outcome. The same fields record() takes, without
+ * an outcome or a completion result — those exist only after evaluation.
+ */
+export interface ReserveSubmissionInput {
+  readonly learnerId: string;
+  readonly sessionId: string;
+  readonly submissionId: string;
+  readonly requestHash: string;
+  readonly rootCauseId: string;
+  readonly explanation: string;
+  readonly evidence: readonly EvidenceRef[];
+  readonly window: AttemptWindow;
+}
+
+/**
+ * What trying to claim a submission did. Checked in this order, inside one atomic step:
+ *
+ *  1. That submission id is already a finished attempt: `duplicate` or `conflict`.
+ *  2. The session is already completed: `already-completed`.
+ *  3. The incorrect-attempt window is full: `rate-limited`.
+ *  4. A live claim holds this id: `in-progress` when the content matches, `conflict` when it does not.
+ *  5. Otherwise `claimed`. The caller is the only one who may evaluate. The claim is committed
+ *     before that evaluation starts, so a crash does not hold a database lock across it.
+ */
+export type ReserveSubmissionResult =
+  | {
+      readonly kind: "claimed";
+      readonly claim: SubmissionClaim;
+    }
+  | { readonly kind: "in-progress"; readonly expiresAt: number }
+  | {
+      readonly kind: "duplicate";
+      readonly attempt: DiagnosisAttemptRecord;
+      readonly session: ChallengeSessionRecord;
+      readonly window: WindowStatus;
+    }
+  | {
+      readonly kind: "already-completed";
+      readonly attempt: DiagnosisAttemptRecord;
+      readonly session: ChallengeSessionRecord;
+      readonly window: WindowStatus;
+    }
+  | { readonly kind: "conflict" }
+  | { readonly kind: "rate-limited"; readonly retryAfterMs: number; readonly window: WindowStatus };
+
+/** record()'s input plus the fence token from the claim being finished. */
+export interface FinalizeClaimInput extends RecordAttemptInput {
+  readonly claimToken: string;
+}
+
+/**
+ * Finishing a claim. `claim-lost` means the lease was stolen or released; nothing was written.
+ * The other kinds match record(), and the claim row is removed in the same atomic step.
+ */
+export type FinalizeClaimResult = RecordAttemptResult | { readonly kind: "claim-lost" };
+
+export interface ReleaseClaimInput {
+  readonly sessionId: string;
+  readonly claimToken: string;
+}
+
 export interface AttemptStore {
   /**
    * Records an attempt atomically. See RecordAttemptResult. Rejects with "not-owner" for another
    * learner's session, and with "superseded" for a session a restart has replaced.
+   *
+   * This is the direct path for a caller that already has an outcome. The diagnosis service does
+   * not use it: it reserves a claim, evaluates, then finalizes, so a duplicate is not evaluated.
    */
   record(input: RecordAttemptInput): Promise<RecordAttemptResult>;
+
+  /**
+   * Atomically claims a submission, or reports why it must not be evaluated. Rejects with
+   * "not-owner" or "superseded" on the same terms as record(). Requires the claims table
+   * (migration 0005) on PostgreSQL. record() does not.
+   */
+  reserve(input: ReserveSubmissionInput): Promise<ReserveSubmissionResult>;
+
+  /**
+   * Persists the evaluated attempt and drops the claim in one atomic step. A token that no longer
+   * owns the claim returns `claim-lost` and writes nothing.
+   */
+  finalize(input: FinalizeClaimInput): Promise<FinalizeClaimResult>;
+
+  /** Drops a claim the caller still owns. A missing or stolen claim is a no-op. */
+  releaseClaim(input: ReleaseClaimInput): Promise<void>;
 
   /** The session's attempts in order. Rejects with "not-owner" for another learner's session. */
   list(owner: AttemptOwner): Promise<readonly DiagnosisAttemptRecord[]>;

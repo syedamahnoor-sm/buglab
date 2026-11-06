@@ -8,6 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
+import { deterministicDiagnosisEvaluator, type DiagnosisEvaluator } from "@/server/diagnosis/evaluator";
 import { createDiagnosisHandler } from "@/server/diagnosis/handler";
 import { FixedWindowLimiter } from "@/server/diagnosis/attempt-limiter";
 import { createDefaultRegistry } from "@/server/diagnosis/registry";
@@ -36,7 +37,7 @@ const key = (n: number) => `0a0b0c0d-0000-4000-8000-${String(n).padStart(12, "0"
 
 type Service = DiagnosisSubmissionHandlerDeps["service"];
 
-function setup({ trustedProxyHops = 0 }: { trustedProxyHops?: number } = {}) {
+function setup({ trustedProxyHops = 0, evaluator }: { trustedProxyHops?: number; evaluator?: DiagnosisEvaluator } = {}) {
   let now = START;
   let version = VERSION;
   let ids = 0;
@@ -50,6 +51,7 @@ function setup({ trustedProxyHops = 0 }: { trustedProxyHops?: number } = {}) {
     registry,
     challengeVersion: () => version,
     now: () => now,
+    evaluator,
   });
   const ipSubmissions = new FixedWindowLimiter({ limit: 10, windowMs: 10 * MINUTE, now: () => now });
   const handler = createDiagnosisSubmissionHandler({ service, registry, ipSubmissions, trustedProxyHops });
@@ -769,14 +771,24 @@ describe("diagnosis submission handler: Idempotency-Key", () => {
     assert.deepEqual([stored.attempts.total, stored.attempts.wrong, stored.attempts.window.used], [1, 1, 1]);
   });
 
-  test("a replay is still a replay when time has passed, and is not judged again", async () => {
-    const lab = setup();
+  test("a replay is still a replay when time has passed, and does not invoke the evaluator", async () => {
+    let calls = 0;
+    const lab = setup({
+      evaluator: {
+        evaluate(request) {
+          calls += 1;
+          return deterministicDiagnosisEvaluator.evaluate(request);
+        },
+      },
+    });
     const cookie = await ready(lab);
     const first = await send(lab, { cookie, key: key(1), ...wrong(0) });
+    const afterFirst = calls;
     lab.advance(3 * MINUTE);
 
     const retry = await send(lab, { cookie, key: key(1), ...wrong(0) });
 
+    assert.equal(calls, afterFirst, "the replay does not invoke the evaluator");
     assert.equal(retry.json.status, "incorrect");
     assert.equal((await session(lab, cookie)).attempts.total, 1);
     assert.deepEqual(retry.json.feedback, first.json.feedback);
@@ -1553,7 +1565,7 @@ describe("diagnosis submission handler: unexpected failures", () => {
   test("a storage failure behind the real service is a plain 500, and never an answer", async () => {
     const lab = setup();
     const cookie = await ready(lab);
-    for (const failing of ["record", "touch", "find"] as const) {
+    for (const failing of ["finalize", "touch", "find"] as const) {
       const store = new Proxy(lab.store, {
         get(target, property) {
           if (property === failing) return () => Promise.reject(new Error(SECRET));

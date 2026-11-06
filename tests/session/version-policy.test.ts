@@ -20,6 +20,7 @@ import { describe, test } from "node:test";
 import { createChallengeRegistry, type ChallengeRegistry } from "@/server/challenges/registry";
 import { DEFAULT_ATTEMPT_WINDOW } from "@/server/session/attempt-window";
 import { MemoryStore } from "@/server/session/memory-store";
+import { deterministicDiagnosisEvaluator, type DiagnosisEvaluator } from "@/server/diagnosis/evaluator";
 import { createLearnerSessionService } from "@/server/session/service";
 import type { AttemptStore } from "@/server/session/types";
 import { hashSessionToken, parseSessionToken } from "@/server/session/token";
@@ -63,6 +64,7 @@ const BOTH_CHANGE = () =>
 /** A durable store that outlives deploys, and a way to deploy a registry over it. */
 function lab() {
   let now = START;
+  let evaluator: DiagnosisEvaluator | undefined;
   const store = new MemoryStore({ now: () => now });
   const deploy = (registry: ChallengeRegistry, attempts: AttemptStore = store) =>
     createLearnerSessionService({
@@ -72,6 +74,7 @@ function lab() {
       registry: registry.diagnosisRegistry,
       challengeVersion: (id) => registry.contentVersion(id)!,
       now: () => now,
+      evaluator,
     });
   return {
     store,
@@ -79,6 +82,17 @@ function lab() {
     now: () => now,
     advance(ms: number) {
       now += ms;
+    },
+    /** Counts evaluator calls on services deployed after this. */
+    countEvaluations() {
+      let calls = 0;
+      evaluator = {
+        evaluate(request) {
+          calls += 1;
+          return deterministicDiagnosisEvaluator.evaluate(request);
+        },
+      };
+      return () => calls;
     },
   };
 }
@@ -390,11 +404,13 @@ describe("a COMPLETED session is preserved whatever changes", () => {
     ok(await before.submitDiagnosis(cookie, CHALLENGE_ID, RIGHT()));
 
     // After the revision, the answer that was wrong is now the key.
+    const calls = l.countEvaluations();
     const after = l.deploy(KEY_CHANGES_ANSWER());
     const replay = ok(await after.submitDiagnosis(cookie, CHALLENGE_ID, WRONG(), { submissionId: wrongId }));
 
+    assert.equal(calls(), 0, "a replay does not invoke the evaluator");
     assert.equal(replay.replayed, true);
-    assert.equal(replay.response.status, "incorrect", "a replay reports the stored verdict, it does not judge again");
+    assert.equal(replay.response.status, "incorrect", "a replay reports the stored verdict");
     assert.ok(!JSON.stringify(replay.response).includes(NEW_RESOLUTION));
     assert.ok(replay.response.status === "incorrect" && replay.response.feedback.headline === (original.response as { feedback: { headline: string } }).feedback.headline);
   });
@@ -464,6 +480,7 @@ describe("restarts are safe under concurrency and repetition", () => {
     const sessions = {
       start: (input: Parameters<MemoryStore["start"]>[0]) => l.store.start(input),
       find: (owner: Parameters<MemoryStore["find"]>[0]) => l.store.find(owner),
+      listCurrentCompleted: (learnerId: string) => l.store.listCurrentCompleted(learnerId),
       restart: (input: Parameters<MemoryStore["restart"]>[0]) => {
         offered += 1;
         return l.store.restart(input);
@@ -498,14 +515,17 @@ describe("restarts are safe under concurrency and repetition", () => {
     const racing: AttemptStore = {
       list: (owner) => l.store.list(owner),
       windowStatus: (owner, window) => l.store.windowStatus(owner, window),
-      record: async (input) => {
+      record: (input) => l.store.record(input),
+      finalize: (input) => l.store.finalize(input),
+      releaseClaim: (input) => l.store.releaseClaim(input),
+      reserve: async (input) => {
         await l.store.restart({
           learnerId: old.learnerId,
           challengeId: CHALLENGE_ID,
           challengeVersion: "1+ffffffffffff",
           supersedes: old.current!,
         });
-        return l.store.record(input);
+        return l.store.reserve(input);
       },
     };
     const service = l.deploy(registry, racing);
