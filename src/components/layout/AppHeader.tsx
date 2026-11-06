@@ -30,14 +30,15 @@ const navItems: NavItem[] = [
 ];
 
 // Below sm, items and gaps tighten so the items fit at 320px without the nav
-// scrolling; from sm up the header is unchanged.
-const itemClass = "block rounded-md px-2 py-1.5 sm:px-3";
-const currentClass = "block rounded-md bg-nav-current px-2 py-1.5 font-medium text-foreground sm:px-3";
+// scrolling; from sm up the header is unchanged. Below 400px (320px phones) the
+// three sections and the theme toggle fit by trimming padding and text slightly.
+const itemClass = "block rounded-md px-2 py-1.5 max-[399px]:px-[5px] max-[399px]:text-[13px] sm:px-3";
+const currentClass = "block rounded-md bg-nav-current px-2 py-1.5 font-medium text-foreground max-[399px]:px-[5px] max-[399px]:text-[13px] sm:px-3";
 
 export function AppHeader({ current }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-border bg-nav/90 shadow-nav backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:gap-8 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 max-[399px]:gap-2 max-[399px]:px-3 sm:gap-8 sm:px-6">
         <Link
           href={ROUTES.home}
           className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -66,7 +67,7 @@ export function AppHeader({ current }: AppHeaderProps) {
           </ul>
         </nav>
 
-        <ThemeToggle />
+        <ThemeToggle className="max-[399px]:size-8" />
       </div>
     </header>
   );

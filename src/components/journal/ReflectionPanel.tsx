@@ -3,38 +3,46 @@
 import Link from "next/link";
 import { useId, useState } from "react";
 import { ROUTES } from "@/lib/challenge-routes";
-import { EMPTY_REFLECTION, focusRing, ReflectionForm } from "./ReflectionForm";
-import { useJournal } from "./useJournal";
+import { EMPTY_REFLECTION, ReflectionForm } from "./ReflectionForm";
+import { buttonSecondary, focusRing } from "./ui";
+import { useLearning } from "./useLearning";
 
 /**
- * An optional reflection, offered only below a server-confirmed correct
- * diagnosis. Saving it writes to this browser's journal and changes nothing
- * about the result.
+ * The optional reflection, offered below a server-confirmed correct diagnosis
+ * once the solve is recorded. Saving writes to this browser's learning record
+ * and changes nothing about the result. Collapsed until the learner asks, so
+ * it never gets in the way of reading the resolution.
  */
-export function ReflectionPanel({ challengeId, publishedIds }: { challengeId: string; publishedIds: readonly string[] }) {
-  const journal = useJournal(publishedIds);
-  const entry = journal.state.journal.entries[challengeId];
+export function ReflectionPanel({ challengeId }: { challengeId: string }) {
+  const { state, actions } = useLearning();
+  const entry = state.record.reflections[challengeId];
+  const solved = Boolean(state.record.solves[challengeId]);
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<"new" | "updated" | null>(null);
   const id = useId();
 
-  if (journal.state.status === "loading") return null;
-  if (journal.state.status === "unavailable") {
+  if (state.status === "loading") return null;
+  if (state.status === "unavailable") {
     return (
-      <p className="rounded-md border border-border bg-surface-sunken px-3 py-2 text-xs text-muted">
-        Your Learning Journal is unavailable because this browser is not letting BugLab save anything.
+      <p className="rounded-xl border border-card-border bg-panel px-3.5 py-2.5 text-xs text-muted">
+        Reflections are unavailable because this browser is not letting BugLab save anything. Your diagnosis is unaffected.
       </p>
     );
   }
+  // The solve is recorded by the confirmation just shown; until then there is nothing to reflect on.
+  if (!solved) return null;
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="space-y-3 rounded-md border border-border bg-surface-sunken/60 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 id={`${id}-heading`} className="text-sm font-semibold text-foreground">
+    <section aria-labelledby={`${id}-heading`} className="animate-rise space-y-3 rounded-xl border border-accent/25 bg-card p-4 shadow-card">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">Learning Loop · Reflect</p>
+          <h3 id={`${id}-heading`} className="mt-1 text-sm font-semibold text-foreground">
             Reflect on this investigation
           </h3>
-          <p className="mt-0.5 text-xs text-muted">Optional. Saved in this browser only, in your Learning Journal.</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted">
+            Optional. A short takeaway now makes it easier to recall later. Saved in this browser only.
+          </p>
         </div>
         {!open && (
           <button
@@ -43,7 +51,7 @@ export function ReflectionPanel({ challengeId, publishedIds }: { challengeId: st
               setSaved(null);
               setOpen(true);
             }}
-            className={`h-8 rounded-md border border-border-strong px-3 text-xs font-medium text-foreground hover:bg-surface-raised ${focusRing}`}
+            className={`${buttonSecondary} h-9 shrink-0 px-3.5`}
           >
             {entry ? "Edit reflection" : "Write a reflection"}
           </button>
@@ -57,7 +65,7 @@ export function ReflectionPanel({ challengeId, publishedIds }: { challengeId: st
           onCancel={() => setOpen(false)}
           onSubmit={(reflection) => {
             const isNew = !entry;
-            const result = journal.saveReflection(challengeId, reflection);
+            const result = actions.saveReflection(challengeId, reflection);
             if (!result.ok) return result.message;
             setOpen(false);
             setSaved(isNew ? "new" : "updated");
@@ -68,8 +76,8 @@ export function ReflectionPanel({ challengeId, publishedIds }: { challengeId: st
 
       <div aria-live="polite" className="text-xs">
         {saved && (
-          <p className="text-success">
-            {saved === "new" ? "Saved to your journal. It will come up for recall in 1 day." : "Reflection updated."}{" "}
+          <p className="animate-rise text-success">
+            {saved === "new" ? "Saved to your journal. It is due for recall tomorrow." : "Reflection updated."}{" "}
             <Link href={ROUTES.journal} className={`font-medium text-accent underline-offset-2 hover:underline ${focusRing}`}>
               Open your journal
             </Link>

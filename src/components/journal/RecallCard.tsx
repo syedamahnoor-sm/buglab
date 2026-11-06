@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { categoryLabel } from "@/data/catalog/categories";
-import { challengePath } from "@/lib/challenge-routes";
-import type { JournalEntry, RecallResponse } from "@/lib/journal/model";
-import { suggestRelated } from "@/lib/journal/related";
-import { INTERVAL_DAYS } from "@/lib/journal/schedule";
+import type { LocalDay, RecallResponse, ReflectionEntry } from "@/lib/learning/model";
 import type { PublicChallenge } from "@/types/catalog";
-import { focusRing } from "./ReflectionForm";
-import type { ActionResult } from "./useJournal";
+import { categoryAccent } from "../challenge/library/category-style";
+import { CategoryIcon } from "../challenge/library/CategoryIcon";
+import { dueLabel, nextReviewLabel } from "./format";
+import { REFLECTION_PROMPTS } from "./ReflectionForm";
+import { buttonPrimary, buttonQuiet, buttonSecondary, field } from "./ui";
+import type { ActionResult } from "./useLearning";
 
 type Step = "recall" | "revealed" | "recorded";
 
@@ -21,15 +21,13 @@ type Step = "recall" | "revealed" | "recorded";
 export function RecallCard({
   entry,
   challenge,
-  published,
-  reflectedIds,
+  today,
   onRecord,
   onClose,
 }: {
-  entry: JournalEntry;
+  entry: ReflectionEntry;
   challenge: PublicChallenge;
-  published: readonly PublicChallenge[];
-  reflectedIds: ReadonlySet<string>;
+  today: LocalDay;
   onRecord: (response: RecallResponse) => ActionResult;
   onClose?: () => void;
 }) {
@@ -57,23 +55,26 @@ export function RecallCard({
     setStep("recorded");
   }
 
-  const suggestion = suggestRelated(challenge, published, reflectedIds);
-  // After recording, `entry` is the updated one: its stage is the interval just scheduled.
-  const nextDays = INTERVAL_DAYS[Math.min(entry.recall.stage, INTERVAL_DAYS.length - 1)];
+  const notes = REFLECTION_PROMPTS.filter((prompt) => entry.reflection[prompt.key]);
 
   return (
-    <article aria-labelledby={`${id}-title`} className="space-y-4 rounded-xl border border-accent/30 bg-surface p-5">
-      <header className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-xs text-muted">
-            Challenge {challenge.number} · {categoryLabel(challenge.category)}
-          </p>
-          <h3 id={`${id}-title`} className="mt-1 text-base font-semibold text-foreground">
-            Recall: {challenge.title}
-          </h3>
+    <article aria-labelledby={`${id}-title`} style={categoryAccent(challenge.category)} className="category-accent space-y-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--cat-ring)] bg-[var(--cat-tint)] text-[var(--cat)]">
+            <CategoryIcon category={challenge.category} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs text-muted">
+              Challenge {challenge.number} · {categoryLabel(challenge.category)} · <span className="text-foreground">{dueLabel(entry.recall.dueOn, today)}</span>
+            </p>
+            <h3 id={`${id}-title`} className="mt-1 text-lg font-semibold tracking-tight text-foreground">
+              {challenge.title}
+            </h3>
+          </div>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className={`h-8 rounded-md px-2.5 text-xs text-muted hover:text-foreground ${focusRing}`}>
+          <button type="button" onClick={onClose} className={buttonQuiet}>
             Close
           </button>
         )}
@@ -87,7 +88,7 @@ export function RecallCard({
             if (attempt.trim()) setStep("revealed");
           }}
         >
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label htmlFor={`${id}-attempt`} className="block text-sm font-medium text-foreground">
               Before you look: what caused this bug, and how would you spot it again?
             </label>
@@ -101,54 +102,59 @@ export function RecallCard({
               aria-describedby={`${id}-attempt-hint`}
               value={attempt}
               onChange={(event) => setAttempt(event.target.value)}
-              className="w-full rounded-md border border-border bg-surface-sunken px-3 py-2 text-sm text-foreground focus:border-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+              className={field}
             />
           </div>
-          <button
-            type="submit"
-            disabled={!attempt.trim()}
-            className={`h-9 rounded-md bg-accent px-3.5 text-sm font-medium text-background hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${focusRing}`}
-          >
+          <button type="submit" disabled={!attempt.trim()} className={buttonPrimary}>
             Reveal my takeaway
           </button>
         </form>
       )}
 
       {step !== "recall" && (
-        <div className="space-y-3">
-          <h4 ref={revealedRef} tabIndex={-1} className="text-sm font-semibold text-foreground outline-none">
-            Your saved takeaway
-          </h4>
-          <blockquote className="whitespace-pre-line rounded-md border-l-2 border-accent bg-surface-sunken px-3 py-2 text-sm text-foreground">
-            {entry.reflection.takeaway}
-          </blockquote>
-          {attempt.trim() && (
-            <div className="text-xs text-muted">
-              <p className="font-medium text-foreground">What you just wrote</p>
-              <p className="mt-1 whitespace-pre-line">{attempt.trim()}</p>
+        <div className="animate-rise space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-panel-border bg-panel p-3.5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted">What you just wrote</p>
+              <p className="mt-1.5 whitespace-pre-line text-sm text-foreground">{attempt.trim()}</p>
             </div>
+            <div className="rounded-xl border border-accent/30 bg-accent/[0.06] p-3.5">
+              <h4 ref={revealedRef} tabIndex={-1} className="text-xs font-semibold uppercase tracking-wider text-accent outline-none">
+                Your saved takeaway
+              </h4>
+              <blockquote className="mt-1.5 whitespace-pre-line text-sm font-medium text-foreground">{entry.reflection.takeaway}</blockquote>
+            </div>
+          </div>
+          {notes.length > 0 && (
+            <details className="group rounded-xl border border-card-border bg-card px-3.5 py-2.5">
+              <summary className="cursor-pointer text-sm font-medium text-foreground marker:text-subtle">Your other notes</summary>
+              <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+                {notes.map((prompt) => (
+                  <div key={prompt.key}>
+                    <dt className="text-xs text-muted">{prompt.label}</dt>
+                    <dd className="mt-0.5 whitespace-pre-line text-sm text-foreground">{entry.reflection[prompt.key]}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
           )}
         </div>
       )}
 
       {step === "revealed" && (
         <div className="space-y-2">
-          <p className="text-sm text-foreground">How did your recall compare?</p>
+          <p className="text-sm font-medium text-foreground">How did your recall compare?</p>
           <p className="text-xs text-muted">Your own judgement, not a grade. It only decides when you see this again.</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => record("got-it")} className={`h-9 rounded-md bg-accent px-3.5 text-sm font-medium text-background hover:bg-accent/90 ${focusRing}`}>
+            <button type="button" onClick={() => record("got-it")} className={buttonPrimary}>
               Got it
             </button>
-            <button
-              type="button"
-              onClick={() => record("need-practice")}
-              className={`h-9 rounded-md border border-border-strong px-3.5 text-sm text-foreground hover:bg-surface-raised ${focusRing}`}
-            >
+            <button type="button" onClick={() => record("need-practice")} className={buttonSecondary}>
               Need practice
             </button>
           </div>
           {error && (
-            <p role="alert" className="text-xs text-danger">
+            <p role="alert" className="text-sm text-danger">
               {error}
             </p>
           )}
@@ -156,30 +162,9 @@ export function RecallCard({
       )}
 
       {step === "recorded" && (
-        <div className="space-y-4">
-          <p ref={recordedRef} tabIndex={-1} className="text-sm text-success outline-none">
-            {response === "got-it" ? "Noted." : "Noted, we'll bring it back soon."} Next recall in {nextDays} {nextDays === 1 ? "day" : "days"}.
-          </p>
-          {suggestion && (
-            <div className="rounded-lg border border-border bg-surface-sunken p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-accent">Apply it</p>
-              <p className="mt-1 text-sm text-foreground">
-                Try a related investigation: Challenge {suggestion.challenge.number} · {suggestion.challenge.title}
-              </p>
-              <ul className="mt-1 text-xs text-muted">
-                {suggestion.reasons.map((reason) => (
-                  <li key={reason}>{reason}</li>
-                ))}
-              </ul>
-              <Link
-                href={challengePath(suggestion.challenge.id)}
-                className={`mt-3 inline-flex h-9 items-center rounded-md border border-accent/50 px-3.5 text-sm font-medium text-accent hover:bg-accent/10 ${focusRing}`}
-              >
-                Open Challenge {suggestion.challenge.number}
-              </Link>
-            </div>
-          )}
-        </div>
+        <p ref={recordedRef} tabIndex={-1} className="animate-rise rounded-xl border border-success/30 bg-success/10 px-3.5 py-2.5 text-sm text-success outline-none">
+          {response === "got-it" ? "Noted." : "Noted: it comes back soon."} {nextReviewLabel(entry.recall.dueOn, today)}.
+        </p>
       )}
     </article>
   );

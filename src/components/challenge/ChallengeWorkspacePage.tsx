@@ -11,19 +11,17 @@ interface ChallengeWorkspacePageProps {
   scenario: WorkspaceScenario;
   /** The next published challenge, offered once this one is solved; null for the last. */
   next?: { id: string; number: string; title: string } | null;
-  /** Every published challenge ID, for the learner's journal. Without it the journal is not offered. */
-  publishedIds?: readonly string[] | null;
 }
 
 /** The full workspace page for one challenge: header, overview and workspace. */
-export function ChallengeWorkspacePage({ scenario, next = null, publishedIds = null }: ChallengeWorkspacePageProps) {
+export function ChallengeWorkspacePage({ scenario, next = null }: ChallengeWorkspacePageProps) {
   const nextLink: ChallengeLink | null = next ? { href: challengePath(next.id), number: next.number, title: next.title } : null;
   return (
     <>
       <SkipLinks />
       <AppHeader current="workspace" />
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
-        <ChallengeJourney challenge={scenario.challenge} libraryHref={ROUTES.library} next={nextLink} publishedIds={publishedIds}>
+        <ChallengeJourney challenge={scenario.challenge} libraryHref={ROUTES.library} next={nextLink}>
           <SessionChallengeOverview challenge={scenario.challenge} />
           <WorkspaceClient
             challengeId={scenario.challenge.id}

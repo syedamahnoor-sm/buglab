@@ -20,12 +20,8 @@ export interface ChallengeLink {
 }
 
 interface ChallengeJourneyValue {
+  /** The challenge being investigated, so the Learning Loop can record a confirmed solve of it. */
   challengeId: string;
-  /**
-   * Every published challenge ID, so the journal keeps other challenges' entries
-   * when it saves. Null where the full list is not known: no journal is offered.
-   */
-  publishedIds: readonly string[] | null;
   libraryHref: string;
   /** The next published challenge in catalog order, or null after the last one. */
   next: ChallengeLink | null;
@@ -38,18 +34,17 @@ interface ChallengeJourneyProps {
   challenge: ChallengeSummary;
   libraryHref: string;
   next: ChallengeLink | null;
-  publishedIds: readonly string[] | null;
   children: ReactNode;
 }
 
-export function ChallengeJourney({ challenge, libraryHref, next, publishedIds, children }: ChallengeJourneyProps) {
+export function ChallengeJourney({ challenge, libraryHref, next, children }: ChallengeJourneyProps) {
   // Sticky for the page session: once started, it stays started.
   const [investigationStarted, setInvestigationStarted] = useState(false);
   const markInvestigationStarted = useCallback(() => setInvestigationStarted(true), []);
   const config = useMemo(() => sessionConfigForChallenge(challenge), [challenge]);
   const value = useMemo(
-    () => ({ challengeId: challenge.id, publishedIds, libraryHref, next, markInvestigationStarted }),
-    [challenge.id, publishedIds, libraryHref, next, markInvestigationStarted],
+    () => ({ challengeId: challenge.id, libraryHref, next, markInvestigationStarted }),
+    [challenge.id, libraryHref, next, markInvestigationStarted],
   );
 
   return (
