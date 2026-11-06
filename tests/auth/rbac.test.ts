@@ -102,7 +102,7 @@ describe("the provider in this deployment", () => {
   });
 
   test("selecting a provider that is not implemented fails loudly", () => {
-    assert.throws(() => resolveAuthProvider("better-auth"), /not available/);
+    assert.equal(resolveAuthProvider("better-auth").configured, false, "explicit settings are required before activating the supported provider");
     assert.throws(() => resolveAuthProvider("memory"), /not available/);
   });
 });

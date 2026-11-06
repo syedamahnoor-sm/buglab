@@ -14,6 +14,7 @@ import {
   isPrefetch,
   isSameOrigin,
   readBoundedBody,
+  readJsonObjectBody,
 } from "@/server/session/request-guards";
 
 const URL_BASE = "http://localhost:3000";
@@ -384,6 +385,49 @@ describe("checkWriteHeaders", () => {
   });
 });
 
+describe("readJsonObjectBody", () => {
+  test("a JSON object comes back as is; an empty or blank body is {}", async () => {
+    assert.deepEqual(await readJsonObjectBody(make({}, { body: '{"a":1,"b":[2]}' }), { maxBytes: 64 }), { ok: true, body: { a: 1, b: [2] } });
+    for (const body of ["", "   ", "\n\t "]) {
+      assert.deepEqual(await readJsonObjectBody(make({}, { body }), { maxBytes: 64 }), { ok: true, body: {} }, JSON.stringify(body));
+    }
+  });
+
+  test("the cap is the caller's: the same body passes at one limit and is too large at a smaller one", async () => {
+    const body = JSON.stringify({ text: "x".repeat(200) });
+    assert.equal((await readJsonObjectBody(make({}, { body }), { maxBytes: 1024 })).ok, true);
+    assert.deepEqual(await readJsonObjectBody(make({}, { body }), { maxBytes: 100 }), {
+      ok: false,
+      failure: { status: 400, code: "bad-request", message: "Request body is too large." },
+    });
+  });
+
+  test("invalid JSON and non-objects are 400 bad-request with the session guard's own words", async () => {
+    const refusals: Array<[string, string]> = [
+      ["{", "Request body must be valid JSON."],
+      ["not json", "Request body must be valid JSON."],
+      ["[]", "Request body must be a JSON object."],
+      ["null", "Request body must be a JSON object."],
+      ['"text"', "Request body must be a JSON object."],
+      ["7", "Request body must be a JSON object."],
+    ];
+    for (const [body, message] of refusals) {
+      assert.deepEqual(
+        await readJsonObjectBody(make({}, { body }), { maxBytes: 64 }),
+        { ok: false, failure: { status: 400, code: "bad-request", message } },
+        body,
+      );
+    }
+  });
+
+  test("it reads at most the cap from a stream, like readBoundedBody", async () => {
+    const { body, state } = stream(100, 64);
+    const result = await readJsonObjectBody(make({}, { body }), { maxBytes: 128 });
+    assert.equal(result.ok, false);
+    assert.ok(state.cancelled);
+    assert.ok(state.pulled <= 4);
+  });
+});
 describe("checkSmallJsonWrite", () => {
   test("the cap is 1 KiB", () => {
     assert.equal(SMALL_BODY_LIMIT_BYTES, 1024);

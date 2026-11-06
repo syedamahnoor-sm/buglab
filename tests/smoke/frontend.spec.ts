@@ -40,10 +40,12 @@ test("navigation preserves existing local data, privacy and verified-completion 
     if (!localStorage.getItem("buglab.learning.v2")) localStorage.setItem("buglab.learning.v2", record);
   }, record);
   const privateRequests: string[] = [];
-  const forbiddenCalls: string[] = [];
+  const learnerCalls: string[] = [];
+  const accountCalls: { url: string; method: string }[] = [];
   page.on("request", (request) => {
     if (request.url().includes("/api/recommendations/v1")) privateRequests.push(request.postData() ?? "");
-    if (/\/api\/(learner|account)(\/|\?|$)/.test(request.url())) forbiddenCalls.push(request.url());
+    if (/\/api\/learner(\/|\?|$)/.test(request.url())) learnerCalls.push(`${request.method()} ${request.url()}`);
+    if (/\/api\/account(\/|\?|$)/.test(request.url())) accountCalls.push({ url: request.url(), method: request.method() });
   });
   for (const path of ["/challenges", "/workspace", "/journal#recall", "/progress", "/learning-path"]) {
     await page.goto(path);
@@ -54,7 +56,9 @@ test("navigation preserves existing local data, privacy and verified-completion 
   await expect(page.getByRole("heading", { name: "Your suggested path", exact: true })).toBeVisible();
   expect(privateRequests.length).toBeGreaterThan(0);
   expect(privateRequests.some((body) => body.includes("SMOKE_PRIVATE"))).toBe(false);
-  expect(forbiddenCalls).toEqual([]);
+  expect(learnerCalls).toEqual([]);
+  expect(accountCalls.length).toBeGreaterThan(0);
+  expect(accountCalls.every((call) => call.method === "GET" && call.url.endsWith("/api/account/session"))).toBe(true);
   await navigate(page, "Journal");
   await expect(page).toHaveURL(/\/journal$/);
   await navigate(page, "Progress");

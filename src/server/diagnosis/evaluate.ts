@@ -1,11 +1,15 @@
 /*
- * Compares a validated submission with the answer key. Server-only.
+ * Deterministic comparison of a validated submission with the answer key. Server-only.
+ *
+ * Call sites should prefer DiagnosisEvaluator (evaluator.ts). This module remains the
+ * pure core behind DeterministicDiagnosisEvaluator so existing unit tests and grading
+ * semantics stay stable.
  *
  * Incorrect feedback is deliberately generic: it is identical for every
  * wrong option and depends only on the challenge and the learner's own input,
  * so it never narrows down or confirms the correct answer. A challenge may
  * replace the generic hints with its own investigation hints, which follow
- * the same rule.
+ * the same rule. The learner's explanation is stored elsewhere but is not scored here.
  */
 import "server-only";
 import { getEvidenceId } from "@/lib/evidence";
@@ -26,6 +30,33 @@ function summarizeEvidence(submission: DiagnosisSubmission) {
   return { total: submission.evidence.length, logs, network: submission.evidence.length - logs };
 }
 
+/**
+ * Incorrect feedback from the learner's own submission and the challenge's public hints.
+ * It does not take an answer key: a stored incorrect attempt can be replayed through this
+ * without judging the root cause again.
+ */
+export function incorrectDiagnosisFeedback(
+  submission: DiagnosisSubmission,
+  investigationHints?: readonly string[],
+): DiagnosisFeedback {
+  const evidenceSummary = summarizeEvidence(submission);
+  const hints = [...(investigationHints ?? GENERIC_HINTS)];
+  if (evidenceSummary.network === 0) {
+    hints.push(
+      "All of your evidence comes from server logs. The Network tab shows what the browser actually sent and received.",
+    );
+  } else if (evidenceSummary.logs === 0) {
+    hints.push(
+      "All of your evidence comes from the Network tab. The server logs show how the server interpreted each request.",
+    );
+  }
+  return {
+    headline: "That diagnosis doesn't match what the evidence shows.",
+    hints,
+    evidenceSummary,
+  };
+}
+
 export function evaluateDiagnosis(
   submission: DiagnosisSubmission,
   answerKey: DiagnosisAnswerKey,
@@ -35,24 +66,7 @@ export function evaluateDiagnosis(
   const evidenceSummary = summarizeEvidence(submission);
 
   if (submission.rootCauseId !== answerKey.correctRootCauseId) {
-    const hints = [...(investigationHints ?? GENERIC_HINTS)];
-    if (evidenceSummary.network === 0) {
-      hints.push(
-        "All of your evidence comes from server logs. The Network tab shows what the browser actually sent and received.",
-      );
-    } else if (evidenceSummary.logs === 0) {
-      hints.push(
-        "All of your evidence comes from the Network tab. The server logs show how the server interpreted each request.",
-      );
-    }
-    return {
-      status: "incorrect",
-      feedback: {
-        headline: "That diagnosis doesn't match what the evidence shows.",
-        hints,
-        evidenceSummary,
-      },
-    };
+    return { status: "incorrect", feedback: incorrectDiagnosisFeedback(submission, investigationHints) };
   }
 
   // Each observation counts once, however many equivalent items show it.

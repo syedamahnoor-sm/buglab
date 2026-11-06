@@ -8,7 +8,11 @@
  *
  * WHAT IS WIRED.
  *
- *   challenges        the default challenge registry (Challenge 001, validated at construction)
+ *   challenges        the default challenge registry (Challenge 001 and the authored challenges, validated at
+ *                     construction), FILTERED TO THE PUBLISHED CHALLENGES (see THE PUBLICATION GATE below)
+ *   investigationHints  the challenge-specific hints for incorrect diagnoses (`investigationHintsFor`, the function the live
+ *                     diagnosis route is given), passed to the session service so a submission through it is answered with
+ *                     the same hints. Optional on the service; supplied here so no route has to remember it
  *   store             one object that is the learner, challenge-session and attempt store
  *   service           LearnerSessionService over those, the registry's diagnosis half, and the clock
  *   challengeVersion  the registry's content version for a challenge. It throws for an unknown
@@ -36,6 +40,14 @@
  * rebuilt with the module, so an edited challenge is picked up: sessions started at the old content
  * version then follow the version policy in service.ts (an unfinished one restarts).
  *
+ * THE PUBLICATION GATE. Only challenges the public catalog has published (src/server/diagnosis/published.ts, the same
+ * source the live diagnosis endpoint uses) are visible to anything composed here. Every registry, injected or default, is
+ * filtered before it reaches the session service or the diagnosis handler, so a draft or archived challenge is simply an
+ * unknown one: session creation and restart, session reads, attempt history and diagnosis all answer 404 for it, before any
+ * learner is looked up, whatever answer key is registered. Stored sessions are kept, untouched. The filter covers every
+ * accessor of the registry (list, getPublic, getDiagnosis, contentVersion, diagnosisRegistry), not just the one the service
+ * happens to use. `publishedChallengeIds` replaces the catalog's set for tests only.
+ *
  * THE STORE IS DEVELOPMENT AND TEST ONLY. The default store is MemoryStore: state lives in this one
  * process. It is lost on restart. It is NOT durable, NOT shared between processes, and NOT safe for a
  * production, serverless or multi-instance deployment: a learner created in one instance does not exist
@@ -46,14 +58,19 @@
  */
 import "server-only";
 import { createDefaultChallengeRegistry } from "@/server/challenges/default-registry";
+import { ReadOnlyMap } from "@/server/challenges/read-only";
 import type { ChallengeRegistry } from "@/server/challenges/registry";
+import { investigationHintsFor } from "@/server/content";
 import { FixedWindowLimiter } from "@/server/diagnosis/attempt-limiter";
 import { parseTrustedProxyHops } from "@/server/diagnosis/client-ip";
+import { resolveSessionDiagnosisEvaluator } from "@/server/diagnosis/gemini-session";
 import { parseAppOrigin } from "@/server/diagnosis/origin";
+import { publishedChallengeIds, restrictToPublished } from "@/server/diagnosis/published";
 import { createDiagnosisSubmissionHandler, type IpSubmissionLimiter } from "./session/diagnosis-handler";
 import { MemoryStore } from "./session/memory-store";
-import { createLearnerSessionService, type LearnerSessionService } from "./session/service";
+import { createLearnerSessionService, type InvestigationHints, type LearnerSessionService } from "./session/service";
 import type { AttemptStore, AttemptWindow, ChallengeSessionStore, LearnerStore } from "./session/types";
+import type { DiagnosisEvaluator } from "@/server/diagnosis/evaluator";
 
 /** The three ports as one object, which is how the session service uses them (and how MemoryStore provides them). */
 export type SessionStore = LearnerStore & ChallengeSessionStore & AttemptStore;
@@ -62,8 +79,13 @@ export type SessionStore = LearnerStore & ChallengeSessionStore & AttemptStore;
 const IP_LIMIT = { limit: 10, windowMs: 10 * 60 * 1000 } as const;
 
 export interface AppServicesOptions {
-  /** Defaults to the default challenge registry. */
+  /** Defaults to the default challenge registry. Either way it is filtered to the published challenges. */
   challenges?: ChallengeRegistry;
+  /**
+   * The ids the publication gate lets through. Defaults to the catalog's published ids, which is what a deployment must
+   * use. A different set is for tests only: it must never be built from anything a request supplies.
+   */
+  publishedChallengeIds?: ReadonlySet<string>;
   /** Defaults to a new MemoryStore, which is for development and tests only. */
   store?: SessionStore;
   /** Defaults to the 10-per-10-minutes limiter. */
@@ -85,6 +107,17 @@ export interface AppServicesOptions {
   attemptWindow?: AttemptWindow;
   /** Source of ids for submissions that arrive without an Idempotency-Key. */
   newSubmissionId?: () => string;
+  /**
+   * The challenge-specific investigation hints for incorrect diagnoses. Defaults to `investigationHintsFor`, the very function
+   * the live diagnosis route is given, so a submission through the session service is answered with the same hints as one to
+   * the live endpoint. Pass `() => undefined` to get the evaluator's generic hints. For tests; a deployment uses the default.
+   */
+  investigationHints?: InvestigationHints;
+  /**
+   * Session-path diagnosis evaluator. Defaults to resolveSessionDiagnosisEvaluator: deterministic
+   * unless GEMINI_ENABLED + GEMINI_API_KEY are set. The live cookie route is not affected.
+   */
+  evaluator?: DiagnosisEvaluator;
 }
 
 export interface AppServices {
@@ -101,8 +134,27 @@ export interface AppServices {
   readonly diagnosis: ReturnType<typeof createDiagnosisSubmissionHandler>;
 }
 
+/**
+ * The registry with everything that is not published removed from every accessor, read-only. When every challenge in it is
+ * published there is nothing to remove, so the registry itself is returned, unchanged.
+ */
+function publishedOnly(registry: ChallengeRegistry, published: ReadonlySet<string>): ChallengeRegistry {
+  const ids = [...registry.diagnosisRegistry.keys(), ...registry.list().map((summary) => summary.id)];
+  if (ids.every((id) => published.has(id))) return registry;
+  return Object.freeze({
+    list: () => registry.list().filter((summary) => published.has(summary.id)),
+    getPublic: (challengeId: string) => (published.has(challengeId) ? registry.getPublic(challengeId) : undefined),
+    getDiagnosis: (challengeId: string) => (published.has(challengeId) ? registry.getDiagnosis(challengeId) : undefined),
+    contentVersion: (challengeId: string) => (published.has(challengeId) ? registry.contentVersion(challengeId) : undefined),
+    diagnosisRegistry: new ReadOnlyMap(restrictToPublished(registry.diagnosisRegistry, published)),
+  });
+}
+
 export function createAppServices(options: AppServicesOptions = {}): AppServices {
-  const challenges = options.challenges ?? createDefaultChallengeRegistry();
+  const challenges = publishedOnly(
+    options.challenges ?? createDefaultChallengeRegistry(),
+    options.publishedChallengeIds ?? publishedChallengeIds(),
+  );
   const store: SessionStore = options.store ?? new MemoryStore({ now: options.now });
   const ipSubmissions = options.ipSubmissions ?? new FixedWindowLimiter({ ...IP_LIMIT, now: options.now });
   const trustedProxyHops = options.trustedProxyHops ?? parseTrustedProxyHops(process.env.BUGLAB_TRUSTED_PROXY_HOPS);
@@ -114,6 +166,7 @@ export function createAppServices(options: AppServicesOptions = {}): AppServices
     return version;
   };
 
+  const getPublicScenario = (challengeId: string) => challenges.getPublic(challengeId);
   const service = createLearnerSessionService({
     learners: store,
     sessions: store,
@@ -123,6 +176,9 @@ export function createAppServices(options: AppServicesOptions = {}): AppServices
     now: options.now,
     attemptWindow: options.attemptWindow,
     newSubmissionId: options.newSubmissionId,
+    investigationHints: options.investigationHints ?? investigationHintsFor,
+    getPublicScenario,
+    evaluator: options.evaluator ?? resolveSessionDiagnosisEvaluator({ getPublicScenario }),
   });
 
   return Object.freeze({

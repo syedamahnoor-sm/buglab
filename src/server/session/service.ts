@@ -38,9 +38,16 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { validateDiagnosisSubmission } from "@/lib/diagnosis/validate";
-import { evaluateDiagnosis, type EvaluationResult } from "@/server/diagnosis/evaluate";
+import { incorrectDiagnosisFeedback, type EvaluationResult } from "@/server/diagnosis/evaluate";
+import {
+  deterministicDiagnosisEvaluator,
+  type DiagnosisEvaluator,
+} from "@/server/diagnosis/evaluator";
 import type { DiagnosisChallenge, DiagnosisRegistry } from "@/server/diagnosis/registry";
 import type { AttemptStatus, DiagnosisResponse, DiagnosisSubmission } from "@/types/diagnosis";
+import type { WorkspaceScenario } from "@/types/workspace";
+import { decodeCompletionCursor, encodeCompletionCursor, type CompletionCursor } from "@/server/learning-loop/cursors";
+import { compareText, readPageRequest, takePage, type PageOptions } from "@/server/learning-loop/derive";
 import { DEFAULT_ATTEMPT_WINDOW } from "./attempt-window";
 import type { IssuedCookie } from "./cookie";
 import { cookieMaxAgeSeconds } from "./expiry";
@@ -53,6 +60,9 @@ import {
   type ChallengeSessionView,
 } from "./snapshots";
 import { hashSessionToken, issueSessionToken, parseSessionToken } from "./token";
+
+/** How long a waiter polls a live claim. One second past the default lease, so an expired claim can be taken. */
+const CLAIM_WAIT_MS = 31_000;
 import {
   StoreError,
   type AttemptStore,
@@ -65,6 +75,12 @@ import {
   type LearnerStore,
   type SessionToken,
 } from "./types";
+
+/**
+ * A challenge's own investigation hints for incorrect diagnoses, or undefined for the evaluator's generic ones. The same
+ * shape the live diagnosis endpoint takes (`investigationHints` in its handler options), so one function serves both.
+ */
+export type InvestigationHints = (challengeId: string) => readonly string[] | undefined;
 
 export interface LearnerSessionServiceDeps {
   learners: LearnerStore;
@@ -85,6 +101,28 @@ export interface LearnerSessionServiceDeps {
   challengeVersion: (challengeId: string) => string;
   /** Source of ids for submissions that arrive without one. */
   newSubmissionId?: () => string;
+  /**
+   * OPTIONAL. The challenge-specific investigation hints shown after an incorrect diagnosis: the same ones, selected the same
+   * way, as the live diagnosis endpoint. Without it every incorrect diagnosis gets the evaluator's generic hints, which is
+   * what a service built before hints existed did, so existing construction is unchanged.
+   *
+   * Hints are never stored. They are static, public-safe content, a function of the challenge and the submission only, so a
+   * replay of an incorrect attempt recomputes them from the stored submission and gets exactly what the original response
+   * had (for as long as the hint text itself is unchanged, which is a code change and so a deploy).
+   */
+  investigationHints?: InvestigationHints;
+  /** Defaults to the deterministic evaluator. Same contract the live diagnosis handler uses. */
+  evaluator?: DiagnosisEvaluator;
+  /**
+   * Wall-clock limit for one evaluation. When it fires, the claim is released and the error
+   * propagates. A later retry may evaluate again. Unset means no service-level timeout.
+   */
+  evaluationTimeoutMs?: number;
+  /**
+   * Public scenario lookup for the optional reasoning path. Defaults to none (deterministic only).
+   * Must not return answer-key modules. The live cookie route does not use this.
+   */
+  getPublicScenario?: (challengeId: string) => WorkspaceScenario | undefined;
 }
 
 /** Why a request was refused. None of these records anything or creates anything. */
@@ -94,7 +132,9 @@ export type RejectionCode =
   | "unknown-challenge"
   | "session-missing"
   | "session-outdated"
-  | "submission-id-conflict";
+  | "submission-id-conflict"
+  | "validation-failed"
+  | "invalid-cursor";
 
 export interface Rejection {
   readonly status: "rejected";
@@ -102,6 +142,14 @@ export interface Rejection {
 }
 
 export type StartLearnerResult = { readonly created: boolean; readonly cookie: IssuedCookie };
+
+/** Whether a new learner may be created now. Decided by a creation limit, which this module does not implement. */
+export type CreationAdmission =
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly retryAfterSeconds: number };
+
+/** A new learner was refused by the creation limit. Nothing was created. */
+export type CreationRefused = { readonly status: "rate-limited"; readonly retryAfterSeconds: number };
 
 export type LearnerStatusResult =
   | { readonly state: "none" }
@@ -139,6 +187,22 @@ export type ListAttemptsResult =
   | Rejection
   | { readonly status: "ok"; readonly attempts: readonly AttemptView[]; readonly cookie?: IssuedCookie };
 
+/** One verified completion a learner may see. No session id, learner id, or diagnosis text. */
+export interface LearnerCompletion {
+  readonly challengeId: string;
+  readonly completedAt: string;
+  readonly contentVersion: string;
+}
+
+export type ListCompletionsResult =
+  | Rejection
+  | {
+      readonly status: "ok";
+      readonly completions: readonly LearnerCompletion[];
+      readonly nextCursor: string | null;
+      readonly cookie?: IssuedCookie;
+    };
+
 type Authenticated =
   | { readonly state: "active"; readonly learner: LearnerRecord; readonly token: SessionToken; readonly refreshed: boolean }
   | { readonly state: "missing" }
@@ -147,6 +211,15 @@ type Authenticated =
 const SUBMISSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const rejected = (code: RejectionCode): Rejection => ({ status: "rejected", code });
+
+/** True when a completion sorts strictly after the cursor (completedAt DESC, session id ASC). */
+function completionAfter(
+  record: { completedAt: number; id: string },
+  cursor: CompletionCursor,
+): boolean {
+  if (record.completedAt !== cursor.completedAt) return record.completedAt < cursor.completedAt;
+  return compareText(record.id, cursor.sessionId) > 0;
+}
 
 export class LearnerSessionService {
   private readonly learners: LearnerStore;
@@ -157,6 +230,10 @@ export class LearnerSessionService {
   private readonly window: AttemptWindow;
   private readonly challengeVersion: (challengeId: string) => string;
   private readonly newSubmissionId: () => string;
+  private readonly investigationHints: InvestigationHints | undefined;
+  private readonly evaluator: DiagnosisEvaluator;
+  private readonly evaluationTimeoutMs: number | undefined;
+  private readonly getPublicScenario: ((challengeId: string) => WorkspaceScenario | undefined) | undefined;
 
   constructor(deps: LearnerSessionServiceDeps) {
     this.learners = deps.learners;
@@ -167,6 +244,10 @@ export class LearnerSessionService {
     this.window = deps.attemptWindow ?? DEFAULT_ATTEMPT_WINDOW;
     this.challengeVersion = deps.challengeVersion;
     this.newSubmissionId = deps.newSubmissionId ?? randomUUID;
+    this.investigationHints = deps.investigationHints;
+    this.evaluator = deps.evaluator ?? deterministicDiagnosisEvaluator;
+    this.evaluationTimeoutMs = deps.evaluationTimeoutMs;
+    this.getPublicScenario = deps.getPublicScenario;
   }
 
   /* ------------------------------- Identity -------------------------------- */
@@ -177,9 +258,35 @@ export class LearnerSessionService {
    * empty identity: the old one is never revived.
    */
   async startLearner(cookieValue: unknown): Promise<StartLearnerResult> {
+    return this.beginLearner(cookieValue);
+  }
+
+  /**
+   * Like startLearner, but a NEW learner is created only if `admit` says so. `admit` is asked at most
+   * once, and only when the cookie does not identify a live learner, so resuming an existing learner
+   * is never subject to it (a creation limit must not lock out someone who already has an identity).
+   * When it refuses, nothing is created and the refusal is returned for the caller to answer.
+   */
+  async startLearnerAdmitted(
+    cookieValue: unknown,
+    admit: () => Promise<CreationAdmission>,
+  ): Promise<StartLearnerResult | CreationRefused> {
+    return this.beginLearner(cookieValue, admit);
+  }
+
+  private beginLearner(cookieValue: unknown): Promise<StartLearnerResult>;
+  private beginLearner(cookieValue: unknown, admit: () => Promise<CreationAdmission>): Promise<StartLearnerResult | CreationRefused>;
+  private async beginLearner(
+    cookieValue: unknown,
+    admit?: () => Promise<CreationAdmission>,
+  ): Promise<StartLearnerResult | CreationRefused> {
     const auth = await this.authenticate(cookieValue, "write");
     if (auth.state === "active") return { created: false, cookie: this.cookieFor(auth.token, auth.learner) };
 
+    if (admit) {
+      const admission = await admit();
+      if (!admission.allowed) return { status: "rate-limited", retryAfterSeconds: admission.retryAfterSeconds };
+    }
     const issued = issueSessionToken();
     const learner = await this.learners.create({ tokenHash: issued.tokenHash });
     return { created: true, cookie: this.cookieFor(issued.token, learner) };
@@ -248,10 +355,14 @@ export class LearnerSessionService {
   /**
    * Judges and records one diagnosis in the learner's session.
    *
-   * The submission is validated with the existing rules, then judged by the
-   * existing evaluator, then recorded together with its outcome in one atomic
-   * step. A correct outcome completes the session in that same step. The response
-   * is the existing DiagnosisResponse contract, built from what was stored.
+   * The submission is validated, then claimed. Only the claimant evaluates. A duplicate,
+   * a conflict, a completed session and a full window return before any evaluation.
+   * Finalizing the claim writes the attempt and, when the outcome is correct, the
+   * completion, in one store step. The response is the existing DiagnosisResponse.
+   *
+   * Guarantee: one logical submission is evaluated at most once while its claim is
+   * live. A crash, a timeout, or a lease expiry after the evaluator has already
+   * responded can cause one later call. That is not exactly-once provider execution.
    *
    * `body` is untrusted and only its diagnosis fields are read: a `completed`
    * flag, a `status` or anything else a client adds has no effect. `submissionId`
@@ -289,55 +400,143 @@ export class LearnerSessionService {
     }
 
     const submission = validation.value;
-    const evaluation = evaluateDiagnosis(submission, challenge.answerKey);
-    let result;
-    try {
-      result = await this.attempts.record({
-        learnerId: auth.learner.id,
-        sessionId: session.id,
-        submissionId: options.submissionId ?? this.newSubmissionId(),
-        requestHash: hashSubmission(submission),
-        rootCauseId: submission.rootCauseId,
-        explanation: submission.explanation,
-        evidence: submission.evidence,
-        outcome: evaluation.status,
-        // What the learner is shown on a correct diagnosis, stored with the session when it completes.
-        ...(evaluation.status === "correct"
-          ? { result: { resolutionSummary: evaluation.resolution.summary, feedback: evaluation.feedback } }
-          : {}),
-        window: this.window,
-      });
-    } catch (error) {
-      // Another request replaced this session between the read above and the write: it is out of date too.
-      if (error instanceof StoreError && error.code === "superseded") return rejected("session-outdated");
-      throw error;
-    }
+    const submissionId = options.submissionId ?? this.newSubmissionId();
+    const request = {
+      learnerId: auth.learner.id,
+      sessionId: session.id,
+      submissionId,
+      requestHash: hashSubmission(submission),
+      rootCauseId: submission.rootCauseId,
+      explanation: submission.explanation,
+      evidence: submission.evidence,
+      window: this.window,
+    };
+    const hints = this.investigationHints?.(challengeId);
 
-    switch (result.kind) {
-      case "recorded":
-        return { status: "ok", replayed: false, cookie, response: respond(evaluation, toAttemptStatus(result.window)) };
-      case "duplicate":
-      case "already-completed":
-        // Nothing new was recorded. A replay reports what was stored; it never judges again.
+    // A stolen claim is retried as a fresh reserve. The lost evaluation is not repeated here.
+    for (let stolen = 0; stolen < 3; stolen += 1) {
+      let gate;
+      try {
+        gate = await this.reserveSettled(request);
+      } catch (error) {
+        if (error instanceof StoreError && error.code === "superseded") return rejected("session-outdated");
+        throw error;
+      }
+      if (gate.kind === "duplicate" || gate.kind === "already-completed") {
         return {
           status: "ok",
           replayed: true,
           cookie,
-          response: replayResponse(result.attempt, result.session, challenge, toAttemptStatus(result.window)),
+          response: replayResponse(gate.attempt, gate.session, toAttemptStatus(gate.window), hints),
         };
-      case "conflict":
-        return rejected("submission-id-conflict");
-      case "rate-limited":
+      }
+      if (gate.kind === "conflict") return rejected("submission-id-conflict");
+      if (gate.kind === "rate-limited") {
         return {
           status: "ok",
           replayed: false,
           cookie,
           response: {
             status: "rate-limited",
-            retryAfterSeconds: Math.ceil(result.retryAfterMs / 1000),
-            attempts: toAttemptStatus(result.window),
+            retryAfterSeconds: Math.ceil(gate.retryAfterMs / 1000),
+            attempts: toAttemptStatus(gate.window),
           },
         };
+      }
+
+      let evaluation;
+      try {
+        evaluation = await this.evaluateClaim(challengeId, submission, challenge.answerKey, hints);
+      } catch (error) {
+        await this.attempts.releaseClaim({ sessionId: session.id, claimToken: gate.claim.token });
+        throw error;
+      }
+      let finalized;
+      try {
+        finalized = await this.attempts.finalize({
+          ...request,
+          claimToken: gate.claim.token,
+          outcome: evaluation.status,
+          ...(evaluation.status === "correct"
+            ? { result: { resolutionSummary: evaluation.resolution.summary, feedback: evaluation.feedback } }
+            : {}),
+        });
+      } catch (error) {
+        if (error instanceof StoreError && error.code === "superseded") {
+          await this.attempts.releaseClaim({ sessionId: session.id, claimToken: gate.claim.token });
+          return rejected("session-outdated");
+        }
+        // The finalize transaction rolled back, so the claim is still ours. Drop it. A retry may evaluate again.
+        await this.attempts.releaseClaim({ sessionId: session.id, claimToken: gate.claim.token });
+        throw error;
+      }
+      if (finalized.kind === "claim-lost") continue;
+      if (finalized.kind === "recorded") {
+        return { status: "ok", replayed: false, cookie, response: respond(evaluation, toAttemptStatus(finalized.window)) };
+      }
+      if (finalized.kind === "duplicate" || finalized.kind === "already-completed") {
+        return {
+          status: "ok",
+          replayed: true,
+          cookie,
+          response: replayResponse(finalized.attempt, finalized.session, toAttemptStatus(finalized.window), hints),
+        };
+      }
+      if (finalized.kind === "conflict") return rejected("submission-id-conflict");
+      return {
+        status: "ok",
+        replayed: false,
+        cookie,
+        response: {
+          status: "rate-limited",
+          retryAfterSeconds: Math.ceil(finalized.retryAfterMs / 1000),
+          attempts: toAttemptStatus(finalized.window),
+        },
+      };
+    }
+    throw new Error("The submission claim was lost and could not be settled.");
+  }
+
+  /** Reserves, waiting out a live claim for the same content instead of evaluating beside it. */
+  private async reserveSettled(
+    request: Parameters<AttemptStore["reserve"]>[0],
+  ): Promise<Exclude<Awaited<ReturnType<AttemptStore["reserve"]>>, { kind: "in-progress" }>> {
+    const deadline = Date.now() + CLAIM_WAIT_MS;
+    for (;;) {
+      const gate = await this.attempts.reserve(request);
+      if (gate.kind !== "in-progress") return gate;
+      if (Date.now() >= deadline) {
+        const last = await this.attempts.reserve(request);
+        if (last.kind !== "in-progress") return last;
+        throw new Error("The submission claim did not settle.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  private async evaluateClaim(
+    challengeId: string,
+    submission: DiagnosisSubmission,
+    answerKey: DiagnosisChallenge["answerKey"],
+    investigationHints: readonly string[] | undefined,
+  ): Promise<EvaluationResult> {
+    const scenario = this.getPublicScenario?.(challengeId);
+    const run = this.evaluator.evaluate({
+      submission,
+      answerKey,
+      investigationHints,
+      ...(scenario === undefined ? {} : { scenario }),
+    });
+    const limit = this.evaluationTimeoutMs;
+    if (limit === undefined) return run;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("evaluation timed out")), limit);
+    });
+    try {
+      return await Promise.race([run, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -351,6 +550,40 @@ export class LearnerSessionService {
 
     const attempts = await this.attempts.list({ learnerId: auth.learner.id, sessionId: session.id });
     return { status: "ok", attempts: attempts.map(toAttemptView), ...this.refreshedCookie(auth) };
+  }
+
+  /**
+   * The learner's current verified completions, completedAt DESC then session id ASC.
+   * Identity is the cookie. `options` may set a page size and an opaque cursor; it cannot name a learner.
+   * Incorrect attempts and superseded sessions are not completions. The stored content version is returned as-is.
+   */
+  async listCompletions(cookieValue: unknown, options: PageOptions = {}): Promise<ListCompletionsResult> {
+    const request = readPageRequest(options, decodeCompletionCursor);
+    if ("refused" in request) return rejected(request.refused);
+    const auth = await this.authenticate(cookieValue, "read");
+    if (auth.state !== "active") return rejected(auth.state === "expired" ? "learner-expired" : "learner-missing");
+
+    const ownerId = auth.learner.id;
+    const verified = (await this.sessions.listCurrentCompleted(ownerId)).filter(
+      (record): record is ChallengeSessionRecord & { completedAt: number } =>
+        record.learnerId === ownerId &&
+        record.status === "completed" &&
+        record.supersededAt === undefined &&
+        typeof record.completedAt === "number",
+    );
+    const after = request.after;
+    const pending = after ? verified.filter((record) => completionAfter(record, after)) : verified;
+    const { page, last } = takePage(pending.slice(0, request.limit + 1), request.limit);
+    return {
+      status: "ok",
+      completions: page.map((record) => ({
+        challengeId: record.challengeId,
+        completedAt: new Date(record.completedAt).toISOString(),
+        contentVersion: record.challengeVersion,
+      })),
+      nextCursor: last ? encodeCompletionCursor({ completedAt: last.completedAt, sessionId: last.id }) : null,
+      ...this.refreshedCookie(auth),
+    };
   }
 
   /* -------------------------------- Helpers -------------------------------- */
@@ -398,18 +631,18 @@ export function createLearnerSessionService(deps: LearnerSessionServiceDeps): Le
 }
 
 /**
- * The response for a stored attempt that is being replayed. A replay reports the stored verdict and never
- * judges again, so the answer key changing afterwards cannot make a replay disagree with what was recorded.
+ * The response for a stored attempt. It does not evaluate.
  *
  *  - a stored CORRECT attempt is answered from the result stored when its session completed;
- *  - a stored INCORRECT attempt is judged again, but against a key nothing can match, so even if the
- *    key has since changed it can only ever be answered as incorrect, with the same generic feedback.
+ *  - a stored INCORRECT attempt stays incorrect. Its feedback is rebuilt from the stored submission
+ *    and the current public hints, which do not include the answer key. A later key change cannot
+ *    flip the verdict, and the deployed hint text still follows the challenge content.
  */
 function replayResponse(
   attempt: DiagnosisAttemptRecord,
   session: ChallengeSessionRecord,
-  challenge: DiagnosisChallenge,
   attempts: AttemptStatus,
+  investigationHints?: readonly string[],
 ): DiagnosisResponse {
   if (attempt.outcome === "correct") {
     if (!session.result) throw new Error("A completed session has no stored result.");
@@ -421,10 +654,11 @@ function replayResponse(
       attempts,
     };
   }
-  let impossible = "no such root cause";
-  while (challenge.validation.rootCauseIds.has(impossible)) impossible += "!";
-  const stored = evaluateDiagnosis(submissionOf(attempt), { ...challenge.answerKey, correctRootCauseId: impossible });
-  return respond(stored, attempts);
+  return {
+    status: "incorrect",
+    feedback: incorrectDiagnosisFeedback(submissionOf(attempt), investigationHints),
+    attempts,
+  };
 }
 
 function submissionOf(attempt: DiagnosisAttemptRecord): DiagnosisSubmission {

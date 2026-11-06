@@ -7,6 +7,12 @@ import { getPublicScenario, listChallengeSummaries } from "@/lib/challenge-catal
 // An unknown ID renders the 404 page; it is never a request-time render of data.
 export const ensureStatic = "navigation";
 
+// The page body is the challenge for this URL. `params` is read before any
+// output so notFound() can return 404; a Suspense boundary around that read
+// would stream a 200 instead. There is no URL-independent shell to show
+// first, so this segment is allowed to block.
+export const instant = false;
+
 export function generateStaticParams() {
   return listChallengeSummaries().map(({ id }) => ({ challengeId: id }));
 }

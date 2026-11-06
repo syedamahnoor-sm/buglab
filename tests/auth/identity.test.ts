@@ -94,13 +94,32 @@ describe("identity boundaries in the code", () => {
 describe("no unprotected admin or account routes", () => {
   const appFiles = walk(join(ROOT, "app")).map(rel);
 
-  test("no admin, auth, account or sign-in route is mounted", () => {
-    const exposed = appFiles.filter((path) => /(^|\/)(admin|auth|account|accounts|login|logout|register|signup|sign-in|sign-up)(\/|$)/i.test(path));
-    assert.deepEqual(exposed, []);
+  test("admin stays unmounted; every account page inherits the server session boundary", () => {
+    assert.deepEqual(appFiles.filter((path) => /(^|\/)admin(\/|$)/i.test(path)), []);
+    const layout = readFileSync(join(ROOT, "app/account/layout.tsx"), "utf8");
+    assert.match(layout, /readAccountSession/);
+    assert.match(layout, /if \(!session\) redirect/);
+    assert.match(layout, /Suspense/);
   });
 
-  test("only diagnosis and the public read-only recommendation API are mounted", () => {
-    assert.deepEqual(appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)), ["app/api/challenges/[challengeId]/diagnosis/route.ts", "app/api/recommendations/v1/route.ts"]);
+  test("account, OAuth, diagnosis, Habin learner, and recommendation API routes are mounted", () => {
+    assert.deepEqual(
+      appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)).sort(),
+      [
+        "app/api/account/[...path]/route.ts",
+        "app/api/auth/[...path]/route.ts",
+        "app/api/challenges/[challengeId]/attempts/route.ts",
+        "app/api/challenges/[challengeId]/diagnosis/route.ts",
+        "app/api/challenges/[challengeId]/session/route.ts",
+        "app/api/learner/completions/route.ts",
+        "app/api/learner/route.ts",
+        "app/api/learning/activity/route.ts",
+        "app/api/learning/journal/route.ts",
+        "app/api/learning/reflections/[reflectionId]/route.ts",
+        "app/api/learning/reflections/route.ts",
+        "app/api/recommendations/v1/route.ts",
+      ],
+    );
   });
 
   test("no page or component imports the auth or admin server modules yet", () => {

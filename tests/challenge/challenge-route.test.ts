@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { describe, test } from "node:test";
 import { createElement, isValidElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import ChallengePage, { ensureStatic, generateMetadata, generateStaticParams } from "@/app/challenges/[challengeId]/page";
+import ChallengePage, {
+  ensureStatic,
+  generateMetadata,
+  generateStaticParams,
+  instant,
+} from "@/app/challenges/[challengeId]/page";
 import { ChallengeWorkspacePage } from "@/components/challenge/ChallengeWorkspacePage";
 import { challenge001 } from "@/data/challenge-001";
 import { provisionalAnswerKey } from "@/data/challenge-001/answer-key.server";
@@ -56,6 +61,7 @@ describe("/challenges/[challengeId]: known challenges", () => {
     assert.deepEqual(generateStaticParams(), listChallengeSummaries().map(({ id }) => ({ challengeId: id })));
     assert.deepEqual(generateStaticParams()[0], { challengeId: "challenge-001" });
     assert.equal(ensureStatic, "navigation");
+    assert.equal(instant, false);
   });
 
   test("titles the page after the challenge", async () => {
