@@ -219,9 +219,9 @@ describe("diagnosis submission handler and composition: source guards", () => {
     }
   });
 
-  test("nothing is mounted: the only route under src/app/api is the live diagnosis route", () => {
+  test("shared learner routes stay unmounted; only diagnosis and public read-only recommendations are mounted", () => {
     const routes = sourceFiles(join(ROOT, "src/app/api")).map(name);
-    assert.deepEqual(routes, ["src/app/api/challenges/[challengeId]/diagnosis/route.ts"]);
+    assert.deepEqual(routes, ["src/app/api/challenges/[challengeId]/diagnosis/route.ts", "src/app/api/recommendations/v1/route.ts"]);
   });
 
   test("nothing but a test imports the composition root: no route, page, component, engine or other server code", () => {
