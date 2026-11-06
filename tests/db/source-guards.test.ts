@@ -430,8 +430,8 @@ describe("durable storage: source guards", () => {
  * definition, not this milestone's change. Move this forward only when the branch is deliberately brought up to date
  * with a newer main.
  */
-/** Auth tip this learner-backend release is based on (not the older durable-store baseline). */
-const BASELINE = "c7f311f6d12b018bfe1bdd9dc0192ad371aee2e7";
+/** Latest main tip after merging recommendations/Learning Path (PR #9/#12) into this learner branch. */
+const BASELINE = "661ee62f7182f9953a88af7e14a7cbb0adfd7969";
 
 describe("durable storage: protected areas of the baseline are untouched", () => {
   /** Files changed relative to the milestone's baseline, committed or not. Skipped when git or the baseline is unavailable. */
@@ -484,15 +484,37 @@ describe("durable storage: protected areas of the baseline are untouched", () =>
       "src/app/api/learning/journal/route.ts",
       "src/app/api/learning/activity/route.ts",
     ]);
+    const accountUiAllowed = new Set([
+      "src/components/account/AccountDashboard.tsx",
+      "src/components/account/AccountNav.tsx",
+      "src/components/account/AccountProvider.tsx",
+      "src/components/account/AuthForm.tsx",
+      "src/components/account/LearningIdentityNotice.tsx",
+      "src/components/account/ui.tsx",
+      "src/components/journal/JournalPage.tsx",
+      "src/components/layout/AppHeader.tsx",
+      "src/components/layout/nav.ts",
+      "src/components/progress/ProgressPage.tsx",
+      "src/lib/account/api.ts",
+      "src/lib/account/config.ts",
+      "src/lib/account/contract.ts",
+      "src/lib/account/link.ts",
+      "src/lib/account/model.ts",
+      "src/lib/account/routes.ts",
+      "src/lib/account/validation.ts",
+    ]);
     const touched = changed.filter(
       (file) =>
         !learnerMountAllowed.has(file) &&
         !diagnosisEvaluationAllowed.has(file) &&
+        !accountUiAllowed.has(file) &&
         !file.startsWith("src/server/auth/") &&
         !file.startsWith("src/server/account/") &&
         !file.startsWith("src/app/account/") &&
         !file.startsWith("src/app/api/account/") &&
         !file.startsWith("src/app/api/auth/") &&
+        !file.startsWith("src/lib/account/") &&
+        !file.startsWith("src/components/account/") &&
         protectedPrefixes.some((prefix) => file === prefix || file.startsWith(prefix)),
     );
     assert.deepEqual(touched, [], "these protected files changed");

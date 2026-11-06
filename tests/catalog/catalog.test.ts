@@ -120,6 +120,7 @@ describe("who may read the catalog", () => {
       "app/journal/page.tsx",
       "app/progress/page.tsx",
       "lib/challenge-catalog.ts",
+      "lib/recommendations/server/catalog.ts",
       "proxy.ts",
       "server/admin/challenges.ts",
       "server/diagnosis/published.ts",

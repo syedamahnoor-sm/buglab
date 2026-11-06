@@ -19,7 +19,9 @@
     "test:auth": "node --import ./tests/setup/register.mjs --test \"tests/auth/*.test.ts\" \"tests/account/*.test.ts\"",
     "test:auth:browser": "playwright test --config playwright.auth.config.ts",
     "db:migrate": "node scripts/db-migrate.mjs",
-    "test:db": "node scripts/test-db.mjs"
+    "test:db": "node scripts/test-db.mjs",
+    "test:smoke": "playwright test --config playwright.integration.config.ts",
+    "test:smoke:api": "playwright test --config playwright.integration.config.ts --project=real-api"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

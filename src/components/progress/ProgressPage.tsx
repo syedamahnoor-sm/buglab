@@ -38,6 +38,9 @@ export function ProgressPage({ challenges }: { challenges: PublicChallenge[] }) 
               . Not linked to an account or shared across devices, and removed if you clear this site&apos;s data.
             </p>
           </header>
+          <Link href={ROUTES.learningPath} className={`w-fit rounded text-sm font-medium text-accent underline-offset-4 hover:underline ${focusRing}`}>
+            Plan your next investigation with Learning Path &rarr;
+          </Link>
           <SkipTarget id={CONTENT_TARGET_ID} label="Progress" />
           <ProgressScreen published={challenges} />
         </div>

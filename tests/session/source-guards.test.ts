@@ -236,7 +236,7 @@ describe("diagnosis submission handler and composition: source guards", () => {
     }
   });
 
-  test("mounted API routes are the live diagnosis route, Codex account/auth routes, and Habin learner routes", () => {
+  test("mounted API routes are diagnosis, Codex account/auth, Habin learner, and recommendations", () => {
     const routes = sourceFiles(join(ROOT, "src/app/api")).map(name).sort();
     assert.deepEqual(routes, [
       "src/app/api/account/[...path]/route.ts",
@@ -250,6 +250,7 @@ describe("diagnosis submission handler and composition: source guards", () => {
       "src/app/api/learning/journal/route.ts",
       "src/app/api/learning/reflections/[reflectionId]/route.ts",
       "src/app/api/learning/reflections/route.ts",
+      "src/app/api/recommendations/v1/route.ts",
     ]);
   });
 

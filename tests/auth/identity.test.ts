@@ -102,7 +102,7 @@ describe("no unprotected admin or account routes", () => {
     assert.match(layout, /Suspense/);
   });
 
-  test("account, OAuth, diagnosis and Habin learner API routes are mounted", () => {
+  test("account, OAuth, diagnosis, Habin learner, and recommendation API routes are mounted", () => {
     assert.deepEqual(
       appFiles.filter((path) => /(^|\/)route\.tsx?$/.test(path)).sort(),
       [
@@ -117,6 +117,7 @@ describe("no unprotected admin or account routes", () => {
         "app/api/learning/journal/route.ts",
         "app/api/learning/reflections/[reflectionId]/route.ts",
         "app/api/learning/reflections/route.ts",
+        "app/api/recommendations/v1/route.ts",
       ],
     );
   });
